@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>拼音造句樂</title>
+<style>
+  :root{
+    --orange:#ff8a3d;
+    --orange-dark:#e8701f;
+    --blue:#2a9df4;
+    --green:#2fbf71;
+    --ink:#3a3a3a;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    min-height:100%;
+    font-family:"Microsoft JhengHei","PingFang TC","Heiti TC","Noto Sans TC","Hiragino Sans GB",system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--ink);
+    background:linear-gradient(160deg,#e8f7ff 0%,#fff4e6 55%,#ffeef7 100%);
+    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  body{ user-select:none; -webkit-user-select:none; }
+
+  .app{
+    max-width:940px;
+    margin:0 auto;
+    padding:10px 12px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-height:100vh;
+  }
+
+  header{
+    background:#fff;
+    border-radius:20px;
+    padding:10px 14px;
+    box-shadow:0 4px 14px rgba(120,140,180,.16);
+    border:2px solid #ffe0bd;
+  }
+  .toprow{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  h1{
+    font-size:22px; margin:0; letter-spacing:2px;
+    color:var(--orange-dark);
+    text-shadow:0 2px 0 #ffe6cc;
+  }
+  .score{
+    font-size:15px; font-weight:700; color:#fff;
+    background:linear-gradient(180deg,#63d2ff,#2a9df4);
+    padding:5px 12px; border-radius:999px;
+    box-shadow:0 3px 0 #1a7fc7;
+    white-space:nowrap;
+  }
+  .hint{
+    margin:6px 0 0; font-size:14px; line-height:1.5; color:#6b7a90;
+  }
+
+  .panel-title{
+    font-size:13px; color:#8a9bb0; margin:0 0 4px 6px; font-weight:700; letter-spacing:1px;
+  }
+
+  /* ---------- drop zones ---------- */
+  .dropzone{
+    display:flex;
+    flex-wrap:wrap;
+    align-content:flex-start;
+    gap:8px;
+    border-radius:20px;
+    padding:10px;
+    transition:background .15s, border-color .15s, box-shadow .15s;
+    min-height:64px;
+  }
+  .answer{
+    min-height:132px;
+    background:#ffffffcc;
+    border:3px dashed #ffbe6b;
+    box-shadow:inset 0 2px 10px rgba(255,180,90,.14);
+  }
+  .answer.over{
+    background:#fff6e2;
+    border-color:#ff9f1c;
+    box-shadow:0 0 0 5px rgba(255,159,28,.18), inset 0 2px 10px rgba(255,180,90,.2);
+  }
+  .answer.shake{ animation:shake .45s; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-7px); }
+    40%{ transform:translateX(7px); }
+    60%{ transform:translateX(-5px); }
+    80%{ transform:translateX(5px); }
+  }
+
+  .bank-wrap{
+    background:#eaf6ff;
+    border-radius:22px;
+    border:2px solid #cde8fb;
+    padding:8px;
+    box-shadow:0 4px 14px rgba(120,140,180,.12);
+  }
+  .bank{
+    max-height:36vh;
+    overflow-y:auto;
+    border:3px dashed #b9dcf5;
+    background:#ffffff9c;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  .bank.over{
+    background:#f0faff;
+    border-color:#7cc6f0;
+  }
+
+  /* ---------- bubbles ---------- */
+  .bubble{
+    position:relative;
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:5px 12px 7px;
+    background:linear-gradient(180deg,#ffffff,#fff8ef);
+    border:2px solid #ffd28a;
+    border-radius:16px;
+    box-shadow:0 3px 0 #f0c070, 0 5px 12px rgba(160,130,80,.15);
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    min-width:52px;
+    transition:transform .1s ease;
+    will-change:transform;
+  }
+  .bubble:active{ cursor:grabbing; }
+  .bubble .py{
+    font-size:13px;
+    line-height:1.15;
+    color:#e07b39;
+    letter-spacing:.4px;
+    white-space:nowrap;
+    font-family:"Segoe UI",system-ui,Arial,sans-serif;
+    font-weight:600;
+  }
+  .bubble .hz{
+    font-size:24px;
+    line-height:1.25;
+    font-weight:800;
+    color:#33404f;
+    white-space:nowrap;
+    letter-spacing:1px;
+  }
+  .bubble.punct{
+    padding:5px 10px 7px;
+    border-color:#d9dee6;
+    box-shadow:0 3px 0 #c3cad4, 0 5px 12px rgba(120,130,150,.12);
+    min-width:40px;
+  }
+  .bubble.punct .hz{ color:#7b8798; }
+  .bubble .ini{ color:#1565c0; }
+  .bubble .fin{ color:#c62828; }
+  .bubble.in-answer{
+    border-color:#a7e3bd;
+    box-shadow:0 3px 0 #86cf9f, 0 5px 12px rgba(90,170,120,.18);
+  }
+  .bubble.hint-placed{
+    animation:hintGlow 1.5s ease-out;
+  }
+  @keyframes hintGlow{
+    0%{ box-shadow:0 0 0 0 rgba(255,200,60,.95), 0 3px 0 #86cf9f; transform:scale(1.15); }
+    60%{ box-shadow:0 0 0 10px rgba(255,200,60,0), 0 3px 0 #86cf9f; transform:scale(1.04); }
+    100%{ box-shadow:0 3px 0 #86cf9f, 0 5px 12px rgba(90,170,120,.18); transform:scale(1); }
+  }
+
+  .ghost{
+    position:fixed !important;
+    z-index:9999;
+    pointer-events:none;
+    opacity:.96;
+    transform:scale(1.1) rotate(-2deg);
+    box-shadow:0 14px 26px rgba(0,0,0,.28) !important;
+    margin:0 !important;
+  }
+
+  /* ---------- buttons ---------- */
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    justify-content:center;
+    padding-top:2px;
+  }
+  button{
+    font-family:inherit;
+    font-size:17px;
+    font-weight:800;
+    letter-spacing:1px;
+    color:#fff;
+    border:none;
+    border-radius:16px;
+    padding:12px 20px;
+    min-height:50px;
+    cursor:pointer;
+    background:linear-gradient(180deg,#63d2ff,#2a9df4);
+    box-shadow:0 4px 0 #1a7fc7, 0 6px 14px rgba(42,157,244,.28);
+    transition:transform .08s, box-shadow .08s, filter .15s;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
+  }
+  button:active{ transform:translateY(3px); box-shadow:0 1px 0 #1a7fc7; }
+  button:disabled{ filter:grayscale(.6) opacity(.55); box-shadow:0 4px 0 #9aa7b6; cursor:default; }
+  button.green{ background:linear-gradient(180deg,#6ee7a3,#2fbf71); box-shadow:0 4px 0 #1f9a58, 0 6px 14px rgba(47,191,113,.28); }
+  button.green:active{ box-shadow:0 1px 0 #1f9a58; }
+  button.orange{ background:linear-gradient(180deg,#ffb367,#ff8a3d); box-shadow:0 4px 0 #d96a1e, 0 6px 14px rgba(255,138,61,.28); }
+  button.orange:active{ box-shadow:0 1px 0 #d96a1e; }
+  button.gray{ background:linear-gradient(180deg,#c7d3e0,#9fb0c2); box-shadow:0 4px 0 #7d8fa3, 0 6px 14px rgba(120,140,170,.22); }
+  button.gray:active{ box-shadow:0 1px 0 #7d8fa3; }
+  button.purple{ background:linear-gradient(180deg,#c9a4ff,#9b6bff); box-shadow:0 4px 0 #7a4fd6, 0 6px 14px rgba(155,107,255,.28); }
+  button.purple:active{ box-shadow:0 1px 0 #7a4fd6; }
+  button.yellow{ background:linear-gradient(180deg,#ffd166,#f4a300); box-shadow:0 4px 0 #c98a00, 0 6px 14px rgba(244,163,0,.28); }
+  button.yellow:active{ box-shadow:0 1px 0 #c98a00; }
+  @keyframes hintPulse{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.08); }
+  }
+  button.pulse{ animation:hintPulse 1s infinite; }
+
+  .legend{
+    font-size:13px; color:#6b7a90; text-align:center; letter-spacing:.5px;
+    display:none;
+  }
+  .legend.on{ display:block; }
+  .legend b.i{ color:#1565c0; }
+  .legend b.f{ color:#c62828; }
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed;
+    left:50%;
+    bottom:18px;
+    transform:translate(-50%,140%);
+    background:rgba(52,64,79,.94);
+    color:#fff;
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:1px;
+    padding:11px 20px;
+    border-radius:999px;
+    box-shadow:0 8px 22px rgba(0,0,0,.25);
+    transition:transform .28s cubic-bezier(.2,1.4,.4,1);
+    z-index:8000;
+    max-width:92vw;
+    text-align:center;
+    pointer-events:none;
+  }
+  .toast.show{ transform:translate(-50%,0); }
+
+  /* ---------- celebration ---------- */
+  .celebrate{
+    position:fixed;
+    inset:0;
+    z-index:9000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(20,30,50,.28);
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .3s;
+  }
+  .celebrate.show{ opacity:1; pointer-events:auto; }
+  .confetti-layer{
+    position:absolute;
+    inset:0;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .confetti-piece{
+    position:absolute;
+    top:-12vh;
+    display:block;
+    animation-name:fall;
+    animation-timing-function:linear;
+    animation-fill-mode:forwards;
+  }
+  @keyframes fall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(125vh) rotate(760deg); opacity:.85; }
+  }
+
+  .congrats{
+    position:relative;
+    background:linear-gradient(180deg,#ffffff,#fff7ec);
+    border:4px solid #ffd28a;
+    border-radius:28px;
+    padding:26px 28px 22px;
+    text-align:center;
+    box-shadow:0 18px 40px rgba(0,0,0,.22);
+    animation:pop .5s cubic-bezier(.2,1.6,.4,1);
+    max-width:88vw;
+  }
+  @keyframes pop{
+    0%{ transform:scale(.5) translateY(30px); opacity:0; }
+    60%{ transform:scale(1.06); opacity:1; }
+    100%{ transform:scale(1); }
+  }
+  .congrats .big{
+    font-size:40px;
+    font-weight:900;
+    letter-spacing:4px;
+    background:linear-gradient(180deg,#ffb347,#ff6f3c);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation:bounce 1s infinite;
+  }
+  @keyframes bounce{
+    0%,100%{ transform:translateY(0) scale(1); }
+    50%{ transform:translateY(-8px) scale(1.04); }
+  }
+  .congrats .sub{
+    font-size:19px;
+    color:#7a8699;
+    letter-spacing:2px;
+    margin:8px 0 18px;
+    font-weight:700;
+  }
+  .congrats .show-sentence{
+    font-size:22px;
+    font-weight:800;
+    color:#33404f;
+    letter-spacing:2px;
+    line-height:1.6;
+    margin:0 0 16px;
+    max-width:80vw;
+  }
+
+  @media (max-width:520px){
+    h1{ font-size:19px; }
+    .bubble .hz{ font-size:21px; }
+    .bubble .py{ font-size:11.5px; }
+    button{ font-size:15.5px; padding:11px 15px; min-height:46px; }
+    .congrats .big{ font-size:32px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="toprow">
+      <h1>🫧 拼音造句樂</h1>
+      <div class="score" id="score">答對 0 句</div>
+    </div>
+    <p class="hint">把下面的詞語泡泡，拖到上面的框框裡，排成一句通順的話。<br>點一下泡泡，可以聽聽它的中文發音喔！</p>
+  </header>
+
+  <main style="display:flex;flex-direction:column;gap:8px;">
+    <section>
+      <div id="answer" class="dropzone answer" aria-label="答案區"></div>
+    </section>
+    <section class="bank-wrap">
+      <div id="bank" class="dropzone bank" aria-label="詞語庫"></div>
+    </section>
+  </main>
+
+  <p class="legend" id="legend">藍色是 <b class="i">聲母</b>，紅色是 <b class="f">韻母</b>。</p>
+
+  <footer class="controls">
+    <button id="btnCheck" class="green">檢查答案</button>
+    <button id="btnHint" class="yellow">💡 提示</button>
+    <button id="btnReset" class="gray">重設</button>
+    <button id="btnSpeak" class="orange">再聽一次</button>
+    <button id="btnParts" class="purple">顯示聲母韻母</button>
+    <button id="btnNext" class="green" style="display:none;">下一題 ➜</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="celebrate" id="celebrate">
+  <div class="confetti-layer" id="confetti"></div>
+  <div class="congrats">
+    <div class="big">太棒了！</div>
+    <div class="sub">你排對了，好厲害！</div>
+    <p class="show-sentence" id="showSentence"></p>
+    <button id="btnNext2" class="green">下一題 ➜</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   一、句庫（Traditional Chinese + Hanyu Pinyin with tone marks）
+   格式：每個詞用「/」分隔；詞寫成「漢字|pinyin」；標點只有漢字。
+   ============================================================ */
+
+const BASE_SENTENCES = [
+"今天|jīn tiān/我|wǒ/跟|gēn/爸爸|bà ba/一起|yī qǐ/去|qù/旅行|lǚ xíng/，/非常|fēi cháng/開心|kāi xīn/。",
+"媽媽|mā ma/在|zài/廚房|chú fáng/煮|zhǔ/麵|miàn/，/味道|wèi dào/很|hěn/香|xiāng/。",
+"爺爺|yé ye/每天|měi tiān/早上|zǎo shang/去|qù/公園|gōng yuán/散步|sàn bù/，/身體|shēn tǐ/很|hěn/健康|jiàn kāng/。",
+"奶奶|nǎi nai/說|shuō/故事|gù shì/給|gěi/我|wǒ/聽|tīng/，/我|wǒ/覺得|jué de/很|hěn/溫暖|wēn nuǎn/。",
+"姊姊|jiě jie/教|jiāo/我|wǒ/寫|xiě/功課|gōng kè/，/我|wǒ/很|hěn/感謝|gǎn xiè/她|tā/。",
+"哥哥|gē ge/和|hé/我|wǒ/一起|yī qǐ/打|dǎ/籃球|lán qiú/，/玩|wán/得|de/很|hěn/快樂|kuài lè/。",
+"我們|wǒ men/全家人|quán jiā rén/一起|yī qǐ/吃|chī/晚飯|wǎn fàn/，/氣氛|qì fēn/很|hěn/熱鬧|rè nao/。",
+"妹妹|mèi mei/畫|huà/了|le/一|yī/張|zhāng/圖畫|tú huà/，/顏色|yán sè/很|hěn/漂亮|piào liang/。",
+"爸爸|bà ba/教|jiāo/我|wǒ/騎|qí/腳踏車|jiǎo tà chē/，/我|wǒ/學|xué/得|de/很|hěn/快|kuài/。",
+"外公|wài gōng/帶|dài/我|wǒ/去|qù/釣魚|diào yú/，/我們|wǒ men/都|dōu/很|hěn/開心|kāi xīn/。",
+"早上|zǎo shang/我|wǒ/背|bēi/著|zhe/書包|shū bāo/去|qù/學校|xué xiào/，/心情|xīn qíng/很|hěn/好|hǎo/。",
+"老師|lǎo shī/在|zài/教室|jiào shì/說|shuō/故事|gù shì/，/同學|tóng xué/都|dōu/很|hěn/專心|zhuān xīn/。",
+"下課|xià kè/的|de/時候|shí hou/我|wǒ/和|hé/同學|tóng xué/玩|wán/遊戲|yóu xì/，/非常|fēi cháng/開心|kāi xīn/。",
+"我|wǒ/在|zài/圖書館|tú shū guǎn/看|kàn/了|le/一|yī/本|běn/書|shū/，/內容|nèi róng/很|hěn/有趣|yǒu qù/。",
+"今天|jīn tiān/的|de/功課|gōng kè/有|yǒu/點|diǎn/難|nán/，/我|wǒ/還是|hái shì/寫|xiě/完|wán/了|le/。",
+"小明|xiǎo míng/在|zài/黑板|hēi bǎn/上|shàng/寫|xiě/字|zì/，/字|zì/寫|xiě/得|de/很|hěn/工整|gōng zhěng/。",
+"我們|wǒ men/班|bān/明天|míng tiān/要|yào/去|qù/校外|xiào wài/教學|jiào xué/，/大家|dà jiā/都|dōu/很|hěn/期待|qī dài/。",
+"考試|kǎo shì/的|de/時候|shí hou/我|wǒ/很|hěn/緊張|jǐn zhāng/，/但是|dàn shì/我|wǒ/很|hěn/努力|nǔ lì/。",
+"老師|lǎo shī/稱讚|chēng zàn/我|wǒ/的|de/作文|zuò wén/，/我|wǒ/感到|gǎn dào/很|hěn/驕傲|jiāo ào/。",
+"我|wǒ/忘記|wàng jì/帶|dài/鉛筆盒|qiān bǐ hé/，/只好|zhǐ hǎo/跟|gēn/同學|tóng xué/借|jiè/。",
+"中午|zhōng wǔ/我|wǒ/吃|chī/了|le/一|yī/碗|wǎn/牛肉麵|niú ròu miàn/，/味道|wèi dào/很|hěn/好|hǎo/。",
+"夜市|yè shì/裡|li/的|de/珍珠奶茶|zhēn zhū nǎi chá/很|hěn/有名|yǒu míng/，/我|wǒ/很|hěn/喜歡|xǐ huān/喝|hē/。",
+"媽媽|mā ma/買|mǎi/了|le/一|yī/盒|hé/草莓|cǎo méi/，/又|yòu/甜|tián/又|yòu/香|xiāng/。",
+"我|wǒ/最|zuì/喜歡|xǐ huān/吃|chī/的|de/水果|shuǐ guǒ/是|shì/芒果|máng guǒ/，/因為|yīn wèi/它|tā/很|hěn/甜|tián/。",
+"早餐|zǎo cān/我|wǒ/通常|tōng cháng/喝|hē/豆漿|dòu jiāng/配|pèi/蛋餅|dàn bǐng/，/很|hěn/滿足|mǎn zú/。",
+"奶奶|nǎi nai/做|zuò/的|de/水餃|shuǐ jiǎo/好|hǎo/好吃|hǎo chī/，/我|wǒ/吃|chī/了|le/十|shí/個|gè/。",
+"今天|jīn tiān/的|de/晚餐|wǎn cān/有|yǒu/青菜|qīng cài/和|hé/魚|yú/，/營養|yíng yǎng/很|hěn/均衡|jūn héng/。",
+"我|wǒ/幫|bāng/媽媽|mā ma/洗|xǐ/水果|shuǐ guǒ/，/媽媽|mā ma/說|shuō/我|wǒ/很|hěn/懂事|dǒng shì/。",
+"動物園|dòng wù yuán/裡|li/的|de/大象|dà xiàng/很|hěn/大|dà/，/我|wǒ/看|kàn/得|de/很|hěn/驚訝|jīng yà/。",
+"小貓|xiǎo māo/在|zài/沙發|shā fā/上|shàng/睡|shuì/覺|jiào/，/樣子|yàng zi/很|hěn/可愛|kě ài/。",
+"小狗|xiǎo gǒu/每天|měi tiān/都|dōu/陪|péi/我|wǒ/去|qù/散步|sàn bù/，/牠|tā/很|hěn/忠心|zhōng xīn/。",
+"蝴蝶|hú dié/在|zài/花園|huā yuán/裡|li/飛來飛去|fēi lái fēi qù/，/看起來|kàn qǐ lái/很|hěn/快樂|kuài lè/。",
+"我|wǒ/在|zài/海邊|hǎi biān/看到|kàn dào/一|yī/隻|zhī/海龜|hǎi guī/，/牠|tā/游|yóu/得|de/很|hěn/慢|màn/。",
+"樹上|shù shàng/的|de/小鳥|xiǎo niǎo/唱|chàng/著|zhe/歌|gē/，/聲音|shēng yīn/很|hěn/好聽|hǎo tīng/。",
+"兔子|tù zi/最|zuì/喜歡|xǐ huān/吃|chī/紅蘿蔔|hóng luó bo/，/樣子|yàng zi/很|hěn/可愛|kě ài/。",
+"猴子|hóu zi/在|zài/樹上|shù shàng/跳來跳去|tiào lái tiào qù/，/非常|fēi cháng/調皮|tiáo pí/。",
+"暑假|shǔ jià/我|wǒ/和|hé/家人|jiā rén/去|qù/花蓮|huā lián/玩|wán/，/風景|fēng jǐng/很|hěn/美麗|měi lì/。",
+"我們|wǒ men/坐|zuò/火車|huǒ chē/去|qù/台北|tái běi/，/沿途|yán tú/的|de/風景|fēng jǐng/很|hěn/好看|hǎo kàn/。",
+"爸爸|bà ba/開|kāi/車|chē/帶|dài/我們|wǒ men/去|qù/山上|shān shàng/看|kàn/星星|xīng xing/，/夜空|yè kōng/很|hěn/漂亮|piào liang/。",
+"我|wǒ/第一次|dì yī cì/坐|zuò/飛機|fēi jī/，/心裡|xīn lǐ/覺得|jué de/很|hěn/興奮|xīng fèn/。",
+"海邊|hǎi biān/的|de/沙子|shā zi/很|hěn/細|xì/，/踩|cǎi/上|shàng/去|qù/很|hěn/舒服|shū fú/。",
+"我們|wǒ men/在|zài/飯店|fàn diàn/住|zhù/了|le/兩|liǎng/晚|wǎn/，/房間|fáng jiān/很|hěn/乾淨|gān jìng/。",
+"旅行|lǚ xíng/的|de/時候|shí hou/我|wǒ/買|mǎi/了|le/很多|hěn duō/紀念品|jì niàn pǐn/，/很|hěn/開心|kāi xīn/。",
+"我們|wǒ men/去|qù/廟|miào/裡|li/拜拜|bài bài/，/祈求|qí qiú/全家|quán jiā/平安|píng ān/。",
+"今天|jīn tiān/下|xià/了|le/一|yī/場|chǎng/大雨|dà yǔ/，/我|wǒ/撐|chēng/著|zhe/傘|sǎn/回家|huí jiā/。",
+"外面|wài miàn/的|de/太陽|tài yáng/很|hěn/大|dà/，/我|wǒ/好|hǎo/想|xiǎng/喝|hē/冰|bīng/水|shuǐ/。",
+"秋天|qiū tiān/到|dào/了|le/，/天氣|tiān qì/變|biàn/得|de/很|hěn/涼爽|liáng shuǎng/。",
+"冬天|dōng tiān/的|de/時候|shí hou/我|wǒ/喜歡|xǐ huān/喝|hē/熱|rè/湯|tāng/，/身體|shēn tǐ/很|hěn/暖和|nuǎn huo/。",
+"今天|jīn tiān/的|de/天空|tiān kōng/很|hěn/藍|lán/，/看|kàn/起來|qǐ lái/很|hěn/舒服|shū fú/。",
+"颱風|tái fēng/來|lái/了|le/，/外面|wài miàn/的|de/風|fēng/雨|yǔ/很|hěn/大|dà/。",
+"我|wǒ/每天|měi tiān/晚上|wǎn shang/都|dōu/練|liàn/鋼琴|gāng qín/，/覺得|jué de/很|hěn/有趣|yǒu qù/。",
+"週末|zhōu mò/我|wǒ/喜歡|xǐ huān/去|qù/游泳|yóu yǒng/，/身體|shēn tǐ/變|biàn/得|de/很|hěn/健康|jiàn kāng/。",
+"我|wǒ/和|hé/爸爸|bà ba/一起|yī qǐ/下|xià/象棋|xiàng qí/，/我|wǒ/輸|shū/了|le/也|yě/很|hěn/開心|kāi xīn/。",
+"妹妹|mèi mei/喜歡|xǐ huān/畫畫|huà huà/，/她|tā/畫|huà/的|de/花|huā/很|hěn/漂亮|piào liang/。",
+"我|wǒ/在|zài/家裡|jiā lǐ/種|zhòng/了|le/一|yī/盆|pén/花|huā/，/每天|měi tiān/都|dōu/澆水|jiāo shuǐ/。",
+"哥哥|gē ge/喜歡|xǐ huān/打|dǎ/籃球|lán qiú/，/他|tā/的|de/球技|qiú jì/很|hěn/好|hǎo/。",
+"我|wǒ/學會|xué huì/了|le/騎|qí/腳踏車|jiǎo tà chē/，/心裡|xīn lǐ/很|hěn/高興|gāo xìng/。",
+"我們|wǒ men/在|zài/客廳|kè tīng/玩|wán/積木|jī mù/，/蓋|gài/了|le/一|yī/座|zuò/城堡|chéng bǎo/。",
+"早上|zǎo shang/我|wǒ/起|qǐ/床|chuáng/後|hòu/先|xiān/刷牙|shuā yá/，/然後|rán hòu/吃|chī/早餐|zǎo cān/。",
+"晚上|wǎn shang/我|wǒ/寫|xiě/完|wán/功課|gōng kè/後|hòu/，/就|jiù/去|qù/洗澡|xǐ zǎo/。",
+"睡覺|shuì jiào/前|qián/媽媽|mā ma/會|huì/說|shuō/故事|gù shì/給|gěi/我|wǒ/聽|tīng/，/我|wǒ/很|hěn/喜歡|xǐ huān/。",
+"我|wǒ/每天|měi tiān/幫|bāng/媽媽|mā ma/倒|dào/垃圾|lā jī/，/媽媽|mā ma/很|hěn/高興|gāo xìng/。",
+"放學|fàng xué/後|hòu/我|wǒ/先|xiān/吃|chī/點心|diǎn xīn/，/再|zài/寫|xiě/功課|gōng kè/。",
+"我|wǒ/自己|zì jǐ/整理|zhěng lǐ/房間|fáng jiān/，/看|kàn/起來|qǐ lái/很|hěn/整齊|zhěng qí/。",
+"今天|jīn tiān/我|wǒ/得到|dé dào/了|le/禮物|lǐ wù/，/心裡|xīn lǐ/很|hěn/開心|kāi xīn/。",
+"我|wǒ/的|de/玩具|wán jù/不|bù/見|jiàn/了|le/，/我|wǒ/有|yǒu/點|diǎn/難過|nán guò/。",
+"朋友|péng yǒu/安慰|ān wèi/我|wǒ/，/我|wǒ/的|de/心情|xīn qíng/好|hǎo/多|duō/了|le/。",
+"明天|míng tiān/要|yào/去|qù/郊遊|jiāo yóu/，/我|wǒ/興奮|xīng fèn/得|de/睡|shuì/不|bù/著|zháo/。",
+"我|wǒ/做|zuò/錯|cuò/了|le/事情|shì qíng/，/向|xiàng/媽媽|mā ma/說|shuō/對不起|duì bù qǐ/。",
+"看|kàn/到|dào/小狗|xiǎo gǒu/受傷|shòu shāng/，/我|wǒ/覺得|jué de/很|hěn/心疼|xīn téng/。",
+"春天|chūn tiān/來|lái/了|le/，/花園|huā yuán/裡|li/的|de/花|huā/開|kāi/得|de/很|hěn/美麗|měi lì/。",
+"山上|shān shàng/的|de/空氣|kōng qì/很|hěn/新鮮|xīn xiān/，/我|wǒ/深呼吸|shēn hū xī/了|le/好|hǎo/幾|jǐ/次|cì/。",
+"海|hǎi/裡|li/的|de/魚|yú/游來游去|yóu lái yóu qù/，/顏色|yán sè/很|hěn/鮮豔|xiān yàn/。",
+"晚上|wǎn shang/的|de/星星|xīng xing/一閃一閃|yī shǎn yī shǎn/，/看起來|kàn qǐ lái/很|hěn/美麗|měi lì/。",
+"太陽|tài yáng/從|cóng/東邊|dōng biān/升|shēng/起來|qǐ lái/，/天空|tiān kōng/變|biàn/亮|liàng/了|le/。",
+"過年|guò nián/的|de/時候|shí hou/我們|wǒ men/一起|yī qǐ/吃|chī/年夜飯|nián yè fàn/，/非常|fēi cháng/熱鬧|rè nao/。",
+"中秋節|zhōng qiū jié/我|wǒ/和|hé/家人|jiā rén/一起|yī qǐ/烤肉|kǎo ròu/，/月亮|yuè liàng/很|hěn/圓|yuán/。",
+"端午節|duān wǔ jié/我們|wǒ men/吃|chī/粽子|zòng zi/，/還|hái/看|kàn/划龍舟|huá lóng zhōu/。",
+"兒童節|ér tóng jié/那天|nà tiān/學校|xué xiào/送|sòng/我們|wǒ men/禮物|lǐ wù/，/大家|dà jiā/都|dōu/很|hěn/開心|kāi xīn/。",
+"生日|shēng rì/的|de/時候|shí hou/我|wǒ/收到|shōu dào/了|le/一|yī/張|zhāng/卡片|kǎ piàn/，/很|hěn/感動|gǎn dòng/。",
+"媽媽|mā ma/帶|dài/我|wǒ/去|qù/市場|shì chǎng/買|mǎi/菜|cài/，/市場|shì chǎng/很|hěn/熱鬧|rè nao/。",
+"我|wǒ/用|yòng/零用錢|líng yòng qián/買|mǎi/了|le/一|yī/本|běn/故事書|gù shì shū/，/很|hěn/滿足|mǎn zú/。",
+"超市|chāo shì/裡|li/的|de/水果|shuǐ guǒ/看|kàn/起來|qǐ lái/很|hěn/新鮮|xīn xiān/，/我們|wǒ men/買|mǎi/了|le/一些|yī xiē/。",
+"店員|diàn yuán/阿姨|ā yí/很|hěn/親切|qīn qiè/，/我|wǒ/向|xiàng/她|tā/說|shuō/謝謝|xiè xie/。",
+"我|wǒ/感冒|gǎn mào/了|le/，/媽媽|mā ma/帶|dài/我|wǒ/去|qù/看|kàn/醫生|yī shēng/。",
+"醫生|yī shēng/說|shuō/我|wǒ/要|yào/多|duō/喝水|hē shuǐ/，/身體|shēn tǐ/才|cái/會|huì/好|hǎo/。",
+"每天|měi tiān/運動|yùn dòng/三十|sān shí/分鐘|fēn zhōng/，/身體|shēn tǐ/會|huì/很|hěn/健康|jiàn kāng/。",
+"我|wǒ/打|dǎ/了|le/一|yī/個|gè/噴嚏|pēn tì/，/鼻子|bí zi/很|hěn/癢|yǎng/。",
+"牙醫|yá yī/說|shuō/我|wǒ/的|de/牙齒|yá chǐ/很|hěn/乾淨|gān jìng/，/我|wǒ/很|hěn/開心|kāi xīn/。",
+"體育課|tǐ yù kè/我們|wǒ men/一起|yī qǐ/跑|pǎo/步|bù/，/跑|pǎo/得|de/很|hěn/累|lèi/。",
+"我|wǒ/和|hé/同學|tóng xué/比賽|bǐ sài/跳繩|tiào shéng/，/我|wǒ/跳|tiào/了|le/一百|yī bǎi/下|xià/。",
+"哥哥|gē ge/是|shì/學校|xué xiào/棒球|bàng qiú/隊|duì/的|de/隊員|duì yuán/，/他|tā/很|hěn/厲害|lì hài/。",
+"我|wǒ/在|zài/音樂|yīn yuè/課|kè/學|xué/吹|chuī/直笛|zhí dí/，/覺得|jué de/很|hěn/有趣|yǒu qù/。",
+"妹妹|mèi mei/唱歌|chàng gē/的|de/聲音|shēng yīn/很|hěn/好聽|hǎo tīng/，/大家|dà jiā/都|dōu/拍手|pāi shǒu/。",
+"我們|wǒ men/在|zài/教室|jiào shì/裡|li/唱|chàng/生日快樂|shēng rì kuài lè/歌|gē/，/大家|dà jiā/都|dōu/很|hěn/開心|kāi xīn/。",
+"圖書館|tú shū guǎn/裡|li/很|hěn/安靜|ān jìng/，/大家|dà jiā/都|dōu/在|zài/看書|kàn shū/。",
+"我|wǒ/的|de/志願|zhì yuàn/是|shì/當|dāng/一|yī/位|wèi/老師|lǎo shī/，/我|wǒ/會|huì/很|hěn/努力|nǔ lì/。",
+"今天|jīn tiān/是|shì/我|wǒ/的|de/生日|shēng rì/，/我|wǒ/非常|fēi cháng/開心|kāi xīn/。",
+"爸爸|bà ba/下班|xià bān/回來|lái/了|le/，/我|wǒ/跑|pǎo/去|qù/抱|bào/他|tā/。",
+"我們|wǒ men/一起|yī qǐ/打掃|dǎ sǎo/客廳|kè tīng/，/家裡|jiā lǐ/變|biàn/得|de/很|hěn/乾淨|gān jìng/。"
+];
+
+/* ============================================================
+   二、句型擴充庫（每個句型都是完整、自然的句子骨架，
+   空格填入的詞彙都經過挑選，任意組合都通順、正確。）
+   ============================================================ */
+
+const SLOTS = {
+  "人物": ["爸爸|bà ba","媽媽|mā ma","哥哥|gē ge","姊姊|jiě jie","弟弟|dì di","妹妹|mèi mei","爺爺|yé ye","奶奶|nǎi nai","外公|wài gōng","外婆|wài pó","老師|lǎo shī","同學|tóng xué","朋友|péng yǒu","阿姨|ā yí","表哥|biǎo gē"],
+  "地點": ["公園|gōng yuán","海邊|hǎi biān","動物園|dòng wù yuán","遊樂園|yóu lè yuán","山上|shān shàng","夜市|yè shì","博物館|bó wù guǎn","外婆家|wài pó jiā","學校|xué xiào","圖書館|tú shū guǎn"],
+  "感受": ["開心|kāi xīn","快樂|kuài lè","高興|gāo xìng","興奮|xīng fèn","滿足|mǎn zú","幸福|xìng fú","愉快|yú kuài"],
+  "活動": ["散步|sàn bù","聊天|liáo tiān","唱歌|chàng gē","跳舞|tiào wǔ","畫畫|huà huà","運動|yùn dòng","玩遊戲|wán yóu xì","看電視|kàn diàn shì","說故事|shuō gù shì","打球|dǎ qiú"],
+  "煮食": ["麵|miàn","湯|tāng","水餃|shuǐ jiǎo","炒飯|chǎo fàn","咖哩|gā lí","紅豆湯|hóng dòu tāng","雞湯|jī tāng"],
+  "香形容": ["香|xiāng","好|hǎo","棒|bàng","濃|nóng"],
+  "食物": ["蘋果|píng guǒ","香蕉|xiāng jiāo","西瓜|xī guā","草莓|cǎo méi","芒果|máng guǒ","鳳梨|fèng lí","葡萄|pú táo","冰淇淋|bīng qí lín","巧克力|qiǎo kè lì","蛋糕|dàn gāo","麵包|miàn bāo","水餃|shuǐ jiǎo","拉麵|lā miàn","壽司|shòu sī","布丁|bù dīng"],
+  "好吃形容": ["甜|tián","好吃|hǎo chī","香|xiāng","美味|měi wèi","可口|kě kǒu","新鮮|xīn xiān"],
+  "動物": ["大象|dà xiàng","獅子|shī zi","長頸鹿|cháng jǐng lù","猴子|hóu zi","企鵝|qì é","熊貓|xióng māo","老虎|lǎo hǔ","斑馬|bān mǎ","無尾熊|wú wěi xióng","海豚|hǎi tún"],
+  "動物形容": ["大|dà","可愛|kě ài","有趣|yǒu qù","調皮|tiáo pí","溫和|wēn hé","特別|tè bié"],
+  "天氣形容": ["好|hǎo","晴朗|qíng lǎng","涼爽|liáng shuǎng","舒服|shū fú","炎熱|yán rè","溫暖|wēn nuǎn"],
+  "戶外活動": ["游泳|yóu yǒng","野餐|yě cān","散步|sàn bù","放風箏|fàng fēng zheng","爬山|pá shān","騎腳踏車|qí jiǎo tà chē","打球|dǎ qiú","拍照|pāi zhào"],
+  "科目": ["國語|guó yǔ","數學|shù xué","英文|yīng wén","自然|zì rán","社會|shè huì","音樂|yīn yuè","美術|měi shù","體育|tǐ yù"],
+  "科目形容": ["有趣|yǒu qù","好玩|hǎo wán","簡單|jiǎn dān","困難|kùn nan","有意思|yǒu yì si"],
+  "家事": ["洗碗|xǐ wǎn","掃地|sǎo dì","拖地|tuō dì","摺衣服|zhé yī fu","倒垃圾|dào lā jī","擦桌子|cā zhuō zi","澆花|jiāo huā"],
+  "讚美": ["棒|bàng","乖|guāi","懂事|dǒng shì","厲害|lì hài","貼心|tiē xīn","勤勞|qín láo"],
+  "好事": ["考了一百分|kǎo le yī bǎi fēn","得到禮物|dé dào lǐ wù","交到新朋友|jiāo dào xīn péng yǒu","被老師稱讚|bèi lǎo shī chēng zàn","幫媽媽做家事|bāng mā ma zuò jiā shì","學會騎腳踏車|xué huì qí jiǎo tà chē"],
+  "節日": ["過年|guò nián","中秋節|zhōng qiū jié","端午節|duān wǔ jié","元宵節|yuán xiāo jié","兒童節|ér tóng jié","母親節|mǔ qīn jié","父親節|fù qīn jié","聖誕節|shèng dàn jié"],
+  "睡前活動": ["聽故事|tīng gù shì","看書|kàn shū","刷牙|shuā yá","和媽媽聊天|hé mā ma liáo tiān","聽音樂|tīng yīn yuè"],
+  "放鬆形容": ["放鬆|fàng sōng","安心|ān xīn","舒服|shū fú","幸福|xìng fú"],
+  "買的東西": ["一本故事書|yī běn gù shì shū","一支鉛筆|yī zhī qiān bǐ","一包餅乾|yī bāo bǐng gān","一個玩具|yī gè wán jù","一張貼紙|yī zhāng tiē zhǐ","一瓶果汁|yī píng guǒ zhī"],
+  "讚美孩子": ["乖巧|guāi qiǎo","聰明|cōng míng","努力|nǔ lì","誠實|chéng shí","有禮貌|yǒu lǐ mào","善良|shàn liáng"],
+  "書類": ["故事書|gù shì shū","圖畫書|tú huà shū","漫畫書|màn huà shū","百科全書|bǎi kē quán shū","童話書|tóng huà shū"],
+  "書形容": ["有趣|yǒu qù","好看|hǎo kàn","精彩|jīng cǎi","感人|gǎn rén"],
+  "一起做的事": ["看電影|kàn diàn yǐng","打籃球|dǎ lán qiú","下棋|xià qí","唱歌|chàng gē","做勞作|zuò láo zuò","玩積木|wán jī mù","溜滑板|liū huá bǎn"],
+  "天空形容": ["藍|lán","美|měi","晴朗|qíng lǎng","明亮|míng liàng"],
+  "早晨習慣": ["去跑步|qù pǎo bù","喝一杯水|hē yī bēi shuǐ","做運動|zuò yùn dòng","吃早餐|chī zǎo cān","讀一本書|dú yī běn shū"],
+  "健康形容": ["健康|jiàn kāng","好|hǎo","棒|bàng","強壯|qiáng zhuàng"]
+};
+
+const TEMPLATES = [
+"今天|jīn tiān/我|wǒ/跟|gēn/{人物}/一起|yī qǐ/去|qù/{地點}/，/非常|fēi cháng/{感受}/。",
+"昨天|zuó tiān/我|wǒ/和|hé/{人物}/一起|yī qǐ/{活動}/，/覺得|jué de/很|hěn/{感受}/。",
+"媽媽|mā ma/在|zài/廚房|chú fáng/煮|zhǔ/{煮食}/，/味道|wèi dào/很|hěn/{香形容}/。",
+"我|wǒ/最|zuì/喜歡|xǐ huān/吃|chī/{食物}/，/因為|yīn wèi/它|tā/很|hěn/{好吃形容}/。",
+"動物園|dòng wù yuán/裡|li/的|de/{動物}/很|hěn/{動物形容}/，/我|wǒ/看|kàn/得|de/很|hěn/{感受}/。",
+"今天|jīn tiān/的|de/天氣|tiān qì/很|hěn/{天氣形容}/，/我|wǒ/想|xiǎng/去|qù/{戶外活動}/。",
+"我|wǒ/和|hé/{人物}/一起|yī qǐ/去|qù/山上|shān shàng/看|kàn/星星|xīng xing/，/覺得|jué de/很|hěn/{感受}/。",
+"我|wǒ/在|zài/學校|xué xiào/學|xué/{科目}/，/覺得|jué de/很|hěn/{科目形容}/。",
+"今天|jīn tiān/我|wǒ/幫|bāng/媽媽|mā ma/{家事}/，/媽媽|mā ma/說|shuō/我|wǒ/很|hěn/{讚美}/。",
+"今天|jīn tiān/我|wǒ/的|de/心情|xīn qíng/很|hěn/好|hǎo/，/因為|yīn wèi/我|wǒ/{好事}/。",
+"週末|zhōu mò/我|wǒ/和|hé/家人|jiā rén/一起|yī qǐ/去|qù/{地點}/，/玩|wán/得|de/很|hěn/{感受}/。",
+"我|wǒ/每天|měi tiān/早上|zǎo shang/都|dōu/會|huì/{早晨習慣}/，/身體|shēn tǐ/很|hěn/{健康形容}/。",
+"我|wǒ/在|zài/圖書館|tú shū guǎn/看|kàn/了|le/一|yī/本|běn/{書類}/，/覺得|jué de/很|hěn/{書形容}/。",
+"{節日}/那天|nà tiān/我們|wǒ men/全家|quán jiā/一起|yī qǐ/吃飯|chī fàn/，/非常|fēi cháng/{感受}/。",
+"我|wǒ/和|hé/{人物}/一起|yī qǐ/{一起做的事}/，/我們|wǒ men/都|dōu/很|hěn/{感受}/。",
+"今天|jīn tiān/的|de/天空|tiān kōng/很|hěn/{天空形容}/，/看|kàn/起來|qǐ lái/很|hěn/{感受}/。",
+"我|wǒ/最|zuì/喜歡|xǐ huān/的|de/動物|dòng wù/是|shì/{動物}/，/因為|yīn wèi/牠|tā/很|hěn/{動物形容}/。",
+"晚上|wǎn shang/睡覺|shuì jiào/前|qián/我|wǒ/會|huì/{睡前活動}/，/覺得|jué de/很|hěn/{放鬆形容}/。",
+"我|wǒ/用|yòng/零用錢|líng yòng qián/買|mǎi/了|le/{買的東西}/，/覺得|jué de/很|hěn/{感受}/。",
+"{人物}/說|shuō/我|wǒ/是|shì/一|yī/個|gè/{讚美孩子}/的|de/孩子|hái zi/，/我|wǒ/很|hěn/開心|kāi xīn/。"
+];
+
+/* ============================================================
+   三、工具函式
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function shuffle(a){
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function parseSentence(str){
+  return str.split('/').map(tok => {
+    const i = tok.indexOf('|');
+    if (i === -1) return { text: tok, pinyin: '' };
+    return { text: tok.slice(0, i), pinyin: tok.slice(i + 1) };
+  });
+}
+
+let recentSentences = [];
+
+function expandTemplate(){
+  const t = pick(TEMPLATES);
+  return t.replace(/\{([^}]+)\}/g, (m, name) => {
+    const opts = SLOTS[name];
+    if (!opts) return m;
+    return pick(opts);
+  });
+}
+
+function pickSentenceString(){
+  for (let k = 0; k < 40; k++){
+    const s = Math.random() < 0.55 ? pick(BASE_SENTENCES) : expandTemplate();
+    if (recentSentences.indexOf(s) === -1){
+      recentSentences.push(s);
+      if (recentSentences.length > 30) recentSentences.shift();
+      return s;
+    }
+  }
+  return expandTemplate();
+}
+
+/* ---- 聲母 / 韻母 切分 ---- */
+const INITIALS = ['zh','ch','sh','b','p','m','f','d','t','n','l','g','k','h','j','q','x','r','z','c','s','y','w'];
+
+function splitSyllable(syl){
+  const low = syl.toLowerCase();
+  for (const ini of INITIALS){
+    if (low.startsWith(ini)) return [syl.slice(0, ini.length), syl.slice(ini.length)];
+  }
+  return ['', syl];
+}
+
+function renderPinyinHTML(pinyin, showParts){
+  if (!pinyin) return '';
+  if (!showParts) return esc(pinyin);
+  return pinyin.split(' ').map(syl => {
+    const parts = splitSyllable(syl);
+    return '<span class="ini">' + esc(parts[0]) + '</span><span class="fin">' + esc(parts[1]) + '</span>';
+  }).join(' ');
+}
+
+/* ============================================================
+   四、語音（Web Speech API）
+   ============================================================ */
+
+let speechOK = ('speechSynthesis' in window) && (typeof SpeechSynthesisUtterance !== 'undefined');
+let voiceList = [];
+
+function loadVoices(){
+  if (!speechOK) return;
+  try { voiceList = window.speechSynthesis.getVoices() || []; } catch(e){ voiceList = []; }
+}
+
+if (speechOK){
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function pickVoice(){
+  if (!voiceList.length) loadVoices();
+  const prefs = ['zh-TW','zh-CN','zh-HK','zh'];
+  const norm = v => (v.lang || '').replace('_','-').toLowerCase();
+  for (const p of prefs){
+    const found = voiceList.find(v => norm(v).indexOf(p.toLowerCase()) === 0);
+    if (found) return found;
+  }
+  return voiceList.find(v => norm(v).indexOf('zh') === 0) || null;
+}
+
+function makeUtterance(text, rate){
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice();
+  if (v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'zh-TW'; }
+  u.rate = rate || 0.85;
+  u.pitch = 1.05;
+  u.volume = 1;
+  return u;
+}
+
+function speakText(text, rate){
+  if (!speechOK){
+    toast('這個裝置不支援語音朗讀喔！');
+    return;
+  }
+  try{
+    window.speechSynthesis.cancel();
+    setTimeout(() => {
+      try { window.speechSynthesis.speak(makeUtterance(text, rate)); } catch(e){}
+    }, 70);
+  } catch(e){
+    toast('這個裝置不支援語音朗讀喔！');
+  }
+}
+
+/* 整句朗讀：在標點處自然停頓 */
+function speakFullSentence(tokens){
+  if (!speechOK){ toast('這個裝置不支援語音朗讀喔！'); return; }
+  try{ window.speechSynthesis.cancel(); } catch(e){}
+  const chunks = [];
+  let cur = '';
+  for (const t of tokens){
+    cur += t.text;
+    if (/[，。！？、；：]/.test(t.text)){ chunks.push(cur); cur = ''; }
+  }
+  if (cur.trim()) chunks.push(cur);
+  setTimeout(() => {
+    chunks.forEach(c => {
+      try { window.speechSynthesis.speak(makeUtterance(c, 0.82)); } catch(e){}
+    });
+  }, 80);
+}
+
+/* ============================================================
+   五、遊戲狀態與 DOM
+   ============================================================ */
+
+const bank = $('bank');
+const answer = $('answer');
+const scoreEl = $('score');
+const btnCheck = $('btnCheck');
+const btnHint = $('btnHint');
+const btnReset = $('btnReset');
+const btnSpeak = $('btnSpeak');
+const btnParts = $('btnParts');
+const btnNext = $('btnNext');
+const btnNext2 = $('btnNext2');
+const celebrate = $('celebrate');
+const confettiLayer = $('confetti');
+const showSentenceEl = $('showSentence');
+const legendEl = $('legend');
+const toastEl = $('toast');
+
+let currentTokens = [];
+let locked = false;
+let score = 0;
+let showParts = false;
+let wrongAttempts = 0;
+
+/* ---------- toast ---------- */
+let toastTimer = null;
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2100);
+}
+
+/* ---------- 建立題目 ---------- */
+function newQuestion(){
+  locked = false;
+  wrongAttempts = 0;
+  btnHint.classList.remove('pulse');
+  celebrate.classList.remove('show');
+  btnNext.style.display = 'none';
+  answer.innerHTML = '';
+  bank.innerHTML = '';
+
+  currentTokens = parseSentence(pickSentenceString());
+
+  const order = currentTokens.map((_, i) => i);
+  shuffle(order);
+
+  order.forEach(i => {
+    const t = currentTokens[i];
+    const el = document.createElement('div');
+    el.className = 'bubble' + (t.pinyin ? '' : ' punct');
+    el.dataset.idx = i;
+    el.dataset.text = t.text;
+    el.dataset.pinyin = t.pinyin;
+    el.innerHTML = t.pinyin
+      ? '<div class="py">' + renderPinyinHTML(t.pinyin, showParts) + '</div><div class="hz">' + esc(t.text) + '</div>'
+      : '<div class="hz">' + esc(t.text) + '</div>';
+    el.addEventListener('pointerdown', onPointerDown);
+    bank.appendChild(el);
+  });
+
+  updateZoneStyles();
+}
+
+/* ---------- 拖曳（Pointer Events，支援觸控與滑鼠） ---------- */
+const DRAG_THRESHOLD = 8;
+let drag = null;
+
+function onPointerDown(e){
+  if (locked) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+  const el = e.currentTarget;
+  const rect = el.getBoundingClientRect();
+
+  drag = {
+    el: el,
+    id: e.pointerId,
+    sx: e.clientX,
+    sy: e.clientY,
+    ox: e.clientX - rect.left,
+    oy: e.clientY - rect.top,
+    w: rect.width,
+    h: rect.height,
+    moved: false,
+    ghost: null
+  };
+
+  try { el.setPointerCapture(e.pointerId); } catch(err){}
+
+  el.addEventListener('pointermove', onPointerMove);
+  el.addEventListener('pointerup', onPointerUp);
+  el.addEventListener('pointercancel', onPointerUp);
+
+  e.preventDefault();
+}
+
+function startGhost(){
+  const el = drag.el;
+  const rect = el.getBoundingClientRect();
+  const g = el.cloneNode(true);
+  g.classList.add('ghost');
+  g.style.left = rect.left + 'px';
+  g.style.top = rect.top + 'px';
+  g.style.width = rect.width + 'px';
+  g.style.height = rect.height + 'px';
+  document.body.appendChild(g);
+  drag.ghost = g;
+  el.style.visibility = 'hidden';
+}
+
+function moveGhost(x, y){
+  if (!drag || !drag.ghost) return;
+  drag.ghost.style.left = (x - drag.ox) + 'px';
+  drag.ghost.style.top = (y - drag.oy) + 'px';
+}
+
+function onPointerMove(e){
+  if (!drag || e.pointerId !== drag.id) return;
+
+  if (!drag.moved){
+    const dx = e.clientX - drag.sx;
+    const dy = e.clientY - drag.sy;
+    if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+    drag.moved = true;
+    startGhost();
+  }
+
+  moveGhost(e.clientX, e.clientY);
+  highlightZone(e.clientX, e.clientY);
+  e.preventDefault();
+}
+
+function highlightZone(x, y){
+  const el = document.elementFromPoint(x, y);
+  const zone = el ? el.closest('.dropzone') : null;
+  answer.classList.toggle('over', zone === answer);
+  bank.classList.toggle('over', zone === bank);
+}
+
+function getInsertBefore(container, x, y, skip){
+  const kids = Array.prototype.slice.call(container.children)
+    .filter(c => c !== skip && c.classList && c.classList.contains('bubble'));
+  for (const c of kids){
+    const r = c.getBoundingClientRect();
+    if (y < r.top) return c;
+    if (y <= r.bottom && x < r.left + r.width / 2) return c;
+  }
+  return null;
+}
+
+function onPointerUp(e){
+  if (!drag || e.pointerId !== drag.id) return;
+
+  const el = drag.el;
+  const moved = drag.moved;
+
+  el.removeEventListener('pointermove', onPointerMove);
+  el.removeEventListener('pointerup', onPointerUp);
+  el.removeEventListener('pointercancel', onPointerUp);
+  try { el.releasePointerCapture(e.pointerId); } catch(err){}
+
+  const x = e.clientX, y = e.clientY;
+
+  let zone = null;
+  if (moved){
+    const target = document.elementFromPoint(x, y);
+    zone = target ? target.closest('.dropzone') : null;
+  }
+
+  if (drag.ghost){ drag.ghost.remove(); drag.ghost = null; }
+  el.style.visibility = '';
+
+  if (moved && zone){
+    const before = getInsertBefore(zone, x, y, el);
+    if (before) zone.insertBefore(el, before);
+    else zone.appendChild(el);
+    updateZoneStyles();
+    maybeAutoCheck();
+  } else if (!moved){
+    // 點一下 = 聽發音
+    const text = el.dataset.text;
+    if (el.dataset.pinyin){
+      speakText(text, 0.78);
+    } else {
+      speakText(text, 0.9);
+    }
+  }
+
+  answer.classList.remove('over');
+  bank.classList.remove('over');
+  drag = null;
+}
+
+/* ---------- 狀態更新 ---------- */
+function updateZoneStyles(){
+  Array.prototype.forEach.call(answer.children, c => c.classList.add('in-answer'));
+  Array.prototype.forEach.call(bank.children, c => c.classList.remove('in-answer'));
+}
+
+function maybeAutoCheck(){
+  if (locked) return;
+  if (bank.children.length === 0 && answer.children.length === currentTokens.length){
+    setTimeout(checkAnswer, 220);
+  }
+}
+
+/* ---------- 檢查答案 ---------- */
+function checkAnswer(){
+  if (locked) return;
+
+  const kids = Array.prototype.slice.call(answer.children);
+  if (kids.length !== currentTokens.length){
+    toast('還有泡泡沒有放上去喔！');
+    return;
+  }
+
+  let ok = true;
+  for (let i = 0; i < kids.length; i++){
+    if (Number(kids[i].dataset.idx) !== i){ ok = false; break; }
+  }
+
+  if (ok){
+    onCorrect();
+  } else {
+    wrongAttempts++;
+    if (wrongAttempts >= 2) btnHint.classList.add('pulse');
+    toast('再想想看，把泡泡的順序調整一下吧！');
+    answer.classList.add('shake');
+    setTimeout(() => answer.classList.remove('shake'), 500);
+  }
+}
+
+/* ---------- 提示：自動放上一個正確泡泡 ---------- */
+function giveHint(){
+  if (locked) return;
+
+  const kids = Array.prototype.slice.call(answer.children);
+
+  // 找出第一個還沒放對的位置
+  let targetIdx = 0;
+  while (targetIdx < currentTokens.length &&
+         kids[targetIdx] &&
+         Number(kids[targetIdx].dataset.idx) === targetIdx){
+    targetIdx++;
+  }
+
+  if (targetIdx >= currentTokens.length){
+    toast('已經排對啦！按「檢查答案」看看。');
+    return;
+  }
+
+  // 找出正確位置對應的泡泡
+  let target = null;
+  const all = document.querySelectorAll('.bubble');
+  for (const el of all){
+    if (Number(el.dataset.idx) === targetIdx){ target = el; break; }
+  }
+  if (!target) return;
+
+  // 移到答案區的正確位置
+  target.remove();
+  const ref = answer.children[targetIdx] || null;
+  answer.insertBefore(target, ref);
+  updateZoneStyles();
+
+  // 提示泡泡的高亮動畫
+  target.classList.remove('hint-placed');
+  void target.offsetWidth;
+  target.classList.add('hint-placed');
+  setTimeout(() => target.classList.remove('hint-placed'), 1600);
+
+  // 唸出提示的詞
+  if (target.dataset.pinyin) speakText(target.dataset.text, 0.78);
+
+  toast('💡 提示：幫你放好一個泡泡囉！');
+
+  maybeAutoCheck();
+}
+
+function onCorrect(){
+  locked = true;
+  btnHint.classList.remove('pulse');
+  score++;
+  scoreEl.textContent = '答對 ' + score + ' 句';
+
+  const full = currentTokens.map(t => t.text).join('');
+  showSentenceEl.textContent = full;
+
+  launchConfetti();
+  celebrate.classList.add('show');
+  btnNext.style.display = '';
+  btnNext2.style.display = '';
+
+  setTimeout(() => speakFullSentence(currentTokens), 480);
+}
+
+/* ---------- 五彩紙花 ---------- */
+function launchConfetti(){
+  confettiLayer.innerHTML = '';
+  const colors = ['#ffd166','#ef476f','#06d6a0','#118ab2','#f78c6b','#c77dff','#ff9f1c','#4cc9f0'];
+  const count = 80;
+  for (let i = 0; i < count; i++){
+    const p = document.createElement('i');
+    p.className = 'confetti-piece';
+    const size = 7 + Math.random() * 9;
+    p.style.left = (Math.random() * 100) + 'vw';
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.background = colors[i % colors.length];
+    p.style.borderRadius = Math.random() < 0.5 ? '50%' : '2px';
+    p.style.animationDelay = (Math.random() * 0.9) + 's';
+    p.style.animationDuration = (1.7 + Math.random() * 1.5) + 's';
+    confettiLayer.appendChild(p);
+  }
+  setTimeout(() => { confettiLayer.innerHTML = ''; }, 4200);
+}
+
+/* ---------- 按鈕事件 ---------- */
+btnCheck.addEventListener('click', checkAnswer);
+
+btnHint.addEventListener('click', giveHint);
+
+btnReset.addEventListener('click', () => {
+  if (locked) return;
+  const all = Array.prototype.slice.call(answer.children).concat(Array.prototype.slice.call(bank.children));
+  answer.innerHTML = '';
+  bank.innerHTML = '';
+  shuffle(all).forEach(el => bank.appendChild(el));
+  updateZoneStyles();
+  toast('已經重新排好囉，再試一次吧！');
+});
+
+btnSpeak.addEventListener('click', () => {
+  const kids = Array.prototype.slice.call(answer.children);
+  if (!kids.length){
+    toast('先把泡泡放到上面的框框吧！');
+    return;
+  }
+  const tokens = kids.map(el => ({ text: el.dataset.text }));
+  speakFullSentence(tokens);
+});
+
+btnParts.addEventListener('click', () => {
+  showParts = !showParts;
+  btnParts.textContent = showParts ? '隱藏聲母韻母' : '顯示聲母韻母';
+  legendEl.classList.toggle('on', showParts);
+  const all = document.querySelectorAll('.bubble');
+  Array.prototype.forEach.call(all, el => {
+    const py = el.dataset.pinyin;
+    const pyEl = el.querySelector('.py');
+    if (pyEl && py) pyEl.innerHTML = renderPinyinHTML(py, showParts);
+  });
+});
+
+function goNext(){
+  newQuestion();
+}
+
+btnNext.addEventListener('click', goNext);
+btnNext2.addEventListener('click', goNext);
+
+/* 避免在拖曳時選取文字或長按選單 */
+document.addEventListener('contextmenu', e => {
+  if (e.target.closest('.bubble')) e.preventDefault();
+});
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+/* 啟動遊戲 */
+newQuestion();
+</script>
+</body>
+</html>
