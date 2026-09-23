@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>紙片句子接龍</title>
+<style>
+:root{
+  --canvas:#FFF8E8; --paper:#FFFDF5; --deep:#F5EEDC; --ink:#263143; --muted:#687180;
+  --voltage:#FF5C5C; --teal:#4ECDC4; --yellow:#FFD166; --violet:#A78BFA; --success:#4CAF50;
+  --c-action:#FFB3A7; --c-fn:#FFFDF5; --c-punct:#EFEBE0; --pm:#8A8272;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Heiti TC",sans-serif;
+  --pin:"Atkinson Hyperlegible","Nunito","Verdana",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--canvas); color:var(--ink); font-family:var(--sans);
+  background-image:radial-gradient(rgba(38,49,67,.07) 1.1px, transparent 1.1px);
+  background-size:22px 22px;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  overscroll-behavior:none;
+}
+button{font-family:inherit}
+:focus-visible{outline:4px solid #2F80ED; outline-offset:2px}
+
+#app{
+  height:100dvh; max-width:920px; margin:0 auto;
+  padding:8px 12px calc(10px + env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; gap:8px;
+}
+/* ---------- header ---------- */
+.rail{display:flex; align-items:center; gap:8px; height:58px; flex:0 0 auto}
+.brand{display:flex; align-items:center; gap:8px; font-size:20px; font-weight:800; letter-spacing:.02em}
+.brand svg{width:30px; height:30px}
+.spacer{flex:1}
+.progress{
+  background:var(--yellow); border:2px solid var(--ink); border-radius:999px;
+  padding:5px 14px; font-weight:800; font-size:15px; box-shadow:0 3px 0 var(--ink); white-space:nowrap;
+}
+.iconbtn{
+  width:48px; height:48px; border:3px solid var(--ink); border-radius:15px; background:var(--paper);
+  box-shadow:0 3px 0 var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:transform .12s, box-shadow .12s; touch-action:manipulation;
+}
+.iconbtn svg{width:24px; height:24px}
+.iconbtn:hover{transform:translateY(-2px); box-shadow:0 5px 0 var(--ink)}
+.iconbtn:active{transform:translateY(2px); box-shadow:0 0 0 var(--ink)}
+.hint{margin:0; text-align:center; font-size:14px; font-weight:700; color:var(--muted); flex:0 0 auto}
+
+/* ---------- stage ---------- */
+.stage{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:8px}
+.tray{
+  position:relative; flex:0 1 auto; min-height:132px; max-height:46%;
+  background:var(--paper); border:3px solid var(--ink); border-radius:28px 28px 18px 18px;
+  padding:14px 12px; display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; gap:9px;
+  overflow:auto; touch-action:pan-y; transition:box-shadow .3s, border-color .3s;
+}
+.tray::before{
+  content:""; position:absolute; inset:10px; border:2px dashed rgba(38,49,67,.16); border-radius:20px;
+  pointer-events:none; transition:opacity .3s;
+}
+.tray.has::before{opacity:0}
+.tray.solved{border-color:var(--voltage); box-shadow:0 0 0 5px rgba(255,92,92,.26), 0 4px 0 var(--ink)}
+.tray.solved::before{opacity:0}
+
+.feedback{
+  min-height:40px; display:flex; align-items:center; justify-content:center; text-align:center;
+  font-size:16px; font-weight:700; color:var(--ink); flex:0 0 auto;
+}
+.feedback .pill{
+  background:var(--deep); border:2px solid var(--ink); border-radius:999px; padding:6px 16px;
+  animation:rise .28s cubic-bezier(.22,1,.36,1);
+}
+.feedback.good .pill{background:#FFE9A8}
+
+.bankwrap{
+  flex:1 1 auto; min-height:112px; display:flex; flex-direction:column;
+  background:#E7F7F5; border:3px solid var(--teal); border-radius:18px 18px 26px 26px; overflow:hidden;
+}
+.bankbar{display:flex; align-items:center; justify-content:space-between; padding:5px 10px 3px}
+.chip{
+  background:var(--teal); border:2px solid var(--ink); border-radius:999px; padding:3px 12px;
+  font-size:13px; font-weight:800; box-shadow:0 2px 0 var(--ink);
+}
+.scrollbtns{display:flex; gap:6px}
+.scrollbtn{
+  width:44px; height:34px; border:2px solid var(--ink); border-radius:11px; background:var(--paper);
+  cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 0 var(--ink);
+  touch-action:manipulation;
+}
+.scrollbtn svg{width:18px;height:18px}
+.scrollbtn:active{transform:translateY(2px); box-shadow:0 0 0 var(--ink)}
+.bank{
+  flex:1 1 auto; min-height:0; overflow:auto; touch-action:pan-y;
+  display:flex; flex-wrap:wrap; align-content:flex-start; justify-content:center; gap:9px; padding:6px 10px 12px;
+}
+.actions{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; flex:0 0 auto}
+
+.btn{
+  min-height:56px; min-width:56px; padding:0 18px; font-size:17px; font-weight:800; color:var(--ink);
+  border:3px solid var(--ink); border-radius:18px; background:var(--paper); box-shadow:0 4px 0 var(--ink);
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  transition:transform .12s, box-shadow .12s; touch-action:manipulation;
+}
+.btn svg{width:22px;height:22px}
+.btn:hover{transform:translateY(-2px); box-shadow:0 6px 0 var(--ink)}
+.btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--ink)}
+.btn.primary{background:var(--voltage)}
+.btn.teal{background:#B7ECE8}
+.btn[disabled]{opacity:.42; transform:none; box-shadow:0 4px 0 var(--ink); cursor:default}
+.btn[hidden]{display:none}
+
+/* ---------- tile ---------- */
+.tile{
+  position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:1px; min-height:64px; min-width:58px; padding:7px 12px 8px;
+  border:2px solid var(--ink); border-radius:18px; background:var(--fill,var(--c-fn));
+  box-shadow:0 4px 0 var(--ink); cursor:grab; touch-action:none;
+  transition:transform .14s cubic-bezier(.22,1,.36,1), box-shadow .14s;
+  color:var(--ink);
+}
+.tile:hover{transform:translateY(-5px) scale(1.03); box-shadow:0 7px 0 var(--ink)}
+.tile:active{cursor:grabbing}
+.tile .meta{
+  font-family:var(--pin); font-size:9.5px; font-weight:700; line-height:11px; color:var(--pm);
+  letter-spacing:.01em; max-height:12px; overflow:hidden; transition:opacity .25s, max-height .25s;
+  white-space:nowrap;
+}
+.tile .py{font-family:var(--pin); font-size:13px; font-weight:700; line-height:15px; white-space:nowrap}
+.tile .hz{font-size:clamp(26px,6vw,34px); font-weight:700; line-height:1.1}
+.tile.cat-q{min-width:48px; padding:7px 10px}
+.tile.cat-q .hz{font-size:clamp(24px,5.5vw,30px)}
+.tile.dragging{opacity:.22}
+.tile.locked{cursor:default}
+.tile.locked:hover{transform:none; box-shadow:0 4px 0 var(--ink)}
+.tray.solved .tile .meta{opacity:0; max-height:0}
+.tray.solved .tile{box-shadow:0 3px 0 var(--ink)}
+
+.ph{
+  border:2px dashed var(--muted); border-radius:18px; background:rgba(38,49,67,.06);
+  min-height:64px; min-width:58px;
+}
+.ghost{position:fixed; z-index:120; pointer-events:none; margin:0;
+  transform:translate(-50%,-50%) rotate(-3deg) scale(1.05); box-shadow:0 8px 0 var(--ink); opacity:.96}
+
+@keyframes drop{0%{transform:translateY(-12px) rotate(-5deg)}60%{transform:translateY(3px) rotate(2deg)}100%{transform:none}}
+@keyframes pop{0%{transform:scale(1)}45%{transform:translateY(-10px) scale(1.07)}100%{transform:scale(1)}}
+@keyframes rise{from{transform:translateY(8px); opacity:0}to{transform:none; opacity:1}}
+@keyframes wobble{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.anim-drop{animation:drop .2s cubic-bezier(.34,1.56,.64,1)}
+.anim-pop{animation:pop .56s cubic-bezier(.22,1,.36,1)}
+.anim-wobble{animation:wobble .32s ease-in-out 2}
+
+/* ---------- cheer + confetti ---------- */
+#cheer{position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+  pointer-events:none; z-index:110}
+#cheer.show{display:flex}
+.cheer-card{
+  background:var(--paper); border:4px solid var(--ink); border-radius:30px; padding:18px 34px;
+  box-shadow:0 10px 0 var(--ink); text-align:center;
+  animation:drop .5s cubic-bezier(.34,1.56,.64,1);
+}
+.cheer-stars{display:flex; gap:10px; justify-content:center; margin-bottom:4px}
+.cheer-stars span{width:26px; height:26px; background:var(--yellow); border:2px solid var(--ink);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+  animation:pop .6s cubic-bezier(.34,1.56,.64,1) both}
+.cheer-stars span:nth-child(2){background:var(--voltage); animation-delay:.08s}
+.cheer-stars span:nth-child(3){background:var(--teal); animation-delay:.16s}
+.cheer-big{font-size:clamp(34px,9vw,56px); font-weight:800; line-height:1.1}
+.cheer-sub{font-size:18px; font-weight:800; color:var(--voltage)}
+#fx{position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:105}
+.conf{position:absolute; top:-30px; border:2px solid var(--ink); border-radius:4px; animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(112vh) rotate(680deg)}}
+
+/* ---------- settings sheet ---------- */
+.sheet{position:fixed; inset:0; background:rgba(38,49,67,.35); display:flex; align-items:center;
+  justify-content:center; z-index:130; padding:20px}
+.sheet[hidden]{display:none}
+.sheet-card{background:var(--paper); border:4px solid var(--ink); border-radius:26px; padding:20px;
+  max-width:420px; width:100%; box-shadow:0 10px 0 var(--ink); animation:drop .35s cubic-bezier(.34,1.56,.64,1)}
+.sheet-card h2{margin:0 0 10px; font-size:22px}
+.sheet-card p{margin:6px 0; font-size:15px; font-weight:600; color:var(--ink)}
+.sheet-row{display:flex; gap:8px; margin-top:16px; justify-content:flex-end; flex-wrap:wrap}
+
+@media (max-width:420px){
+  .brand span{display:none}
+  .btn{font-size:16px; padding:0 14px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <rect x="3" y="3" width="26" height="26" rx="8" fill="#FFD166" stroke="#263143" stroke-width="2.5"/>
+        <circle cx="16" cy="3.5" r="4" fill="#FFFDF5" stroke="#263143" stroke-width="2.5"/>
+        <path d="M11 20c2-4 8-4 10 0" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span>紙片句子接龍</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="progress" id="progress">第 1 題</div>
+    <button class="iconbtn" id="btnSettings" title="朗讀設定" aria-label="朗讀設定">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 8.5a5 5 0 0 1 0 7"/><path d="M19.5 6a8 8 0 0 1 0 12"/>
+      </svg>
+    </button>
+  </header>
+
+  <p class="hint">把詞語排成一句話</p>
+
+  <main class="stage">
+    <section class="tray" id="tray"></section>
+    <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+
+    <section class="bankwrap">
+      <div class="bankbar">
+        <span class="chip">詞語庫</span>
+        <div class="scrollbtns">
+          <button class="scrollbtn" data-dir="-1" title="向上捲動" aria-label="向上捲動">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+          </button>
+          <button class="scrollbtn" data-dir="1" title="向下捲動" aria-label="向下捲動">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="bank" id="bank"></div>
+    </section>
+
+    <div class="actions">
+      <button class="btn primary" id="btnCheck">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>檢查答案</button>
+      <button class="btn teal" id="btnAgain">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M20 4v5h-5"/></svg>再聽一次</button>
+      <button class="btn" id="btnReset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 4v5h5"/></svg>重設</button>
+      <button class="btn primary" id="btnNext" hidden>
+        下一題<svg viewBox="0 0 24 24" fill="none" stroke="#263143" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="M13 6l6 6-6 6"/></svg></button>
+    </div>
+  </main>
+</div>
+
+<div id="fx" aria-hidden="true"></div>
+
+<div id="cheer" aria-hidden="true">
+  <div class="cheer-card">
+    <div class="cheer-stars"><span></span><span></span><span></span></div>
+    <div class="cheer-big">太棒了！</div>
+    <div class="cheer-sub">答對了！</div>
+  </div>
+</div>
+
+<div class="sheet" id="settings" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-label="朗讀設定">
+    <h2>朗讀設定</h2>
+    <p id="voiceInfo">目前聲音：檢查中…</p>
+    <p id="speechNote"></p>
+    <div class="sheet-row">
+      <button class="btn teal" id="btnTest">測試朗讀</button>
+      <button class="btn" id="btnClose">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var $ = function(s){ return document.querySelector(s); };
+
+/* =====================================================================
+   1. 詞彙庫（固定詞彙：繁體中文 + 漢語拼音聲調 + 詞類）
+      詞類：t 時間 / p 人物 / o 事物 / n 自然動物 / a 動作 / f 感受 / g 功能 / q 標點
+   ===================================================================== */
+var WORDS = {
+/* 時間 */
+"今天":"jīn tiān;t","明天":"míng tiān;t","昨天":"zuó tiān;t","早上":"zǎo shang;t","中午":"zhōng wǔ;t",
+"下午":"xià wǔ;t","晚上":"wǎn shang;t","每天":"měi tiān;t","週末":"zhōu mò;t","星期六":"xīng qí liù;t",
+"放假":"fàng jià;t","春天":"chūn tiān;t","夏天":"xià tiān;t","秋天":"qiū tiān;t","冬天":"dōng tiān;t",
+"過年":"guò nián;t","新年":"xīn nián;t","春節":"chūn jié;t","中秋節":"zhōng qiū jié;t","端午節":"duān wǔ jié;t",
+"元宵節":"yuán xiāo jié;t","兒童節":"ér tóng jié;t","母親節":"mǔ qīn jié;t","父親節":"fù qīn jié;t",
+"生日":"shēng rì;t","放學":"fàng xué;t",
+/* 人物 */
+"我":"wǒ;p","我們":"wǒ men;p","你":"nǐ;p","他":"tā;p","她":"tā;p","牠":"tā;p","它":"tā;p","大家":"dà jiā;p",
+"爸爸":"bà ba;p","媽媽":"mā ma;p","哥哥":"gē ge;p","姐姐":"jiě jie;p","弟弟":"dì di;p","妹妹":"mèi mei;p",
+"爺爺":"yé ye;p","奶奶":"nǎi nai;p","外公":"wài gōng;p","外婆":"wài pó;p","老師":"lǎo shī;p","同學":"tóng xué;p",
+"朋友":"péng you;p","小朋友":"xiǎo péng you;p","鄰居":"lín jū;p","醫生":"yī shēng;p","護士":"hù shì;p",
+"司機":"sī jī;p","廚師":"chú shī;p","農夫":"nóng fū;p","家人":"jiā rén;p",
+/* 場所 */
+"家":"jiā;o","家裡":"jiā lǐ;o","學校":"xué xiào;o","教室":"jiào shì;o","操場":"cāo chǎng;o","圖書館":"tú shū guǎn;o",
+"公園":"gōng yuán;o","市場":"shì chǎng;o","商店":"shāng diàn;o","超市":"chāo shì;o","醫院":"yī yuàn;o",
+"動物園":"dòng wù yuán;o","海邊":"hǎi biān;o","山上":"shān shang;o","河邊":"hé biān;o","花園":"huā yuán;o",
+"廚房":"chú fáng;o","客廳":"kè tīng;o","房間":"fáng jiān;o","車站":"chē zhàn;o","火車站":"huǒ chē zhàn;o",
+"機場":"jī chǎng;o","游泳池":"yóu yǒng chí;o","樹上":"shù shang;o","草地上":"cǎo dì shang;o","水裡":"shuǐ lǐ;o",
+"路上":"lù shang;o",
+/* 食物 */
+"米飯":"mǐ fàn;o","麵條":"miàn tiáo;o","麵包":"miàn bāo;o","餃子":"jiǎo zi;o","蛋糕":"dàn gāo;o",
+"三明治":"sān míng zhì;o","餅乾":"bǐng gān;o","糖果":"táng guǒ;o","粽子":"zòng zi;o","月餅":"yuè bǐng;o",
+"年糕":"nián gāo;o","湯圓":"tāng yuán;o","水果":"shuǐ guǒ;o","蔬菜":"shū cài;o","蘋果":"píng guǒ;o",
+"香蕉":"xiāng jiāo;o","草莓":"cǎo méi;o","西瓜":"xī guā;o","橘子":"jú zi;o","葡萄":"pú tao;o",
+"青菜":"qīng cài;o","雞蛋":"jī dàn;o","魚":"yú;o","菜":"cài;o","牛奶":"niú nǎi;o","果汁":"guǒ zhī;o",
+"水":"shuǐ;o","豆漿":"dòu jiāng;o","湯":"tāng;o","早餐":"zǎo cān;o","午餐":"wǔ cān;o","晚餐":"wǎn cān;o",
+"點心":"diǎn xin;o",
+/* 物品 */
+"書包":"shū bāo;o","書":"shū;o","課本":"kè běn;o","作業":"zuò yè;o","功課":"gōng kè;o","鉛筆":"qiān bǐ;o",
+"蠟筆":"là bǐ;o","本子":"běn zi;o","日記":"rì jì;o","故事":"gù shi;o","玩具":"wán jù;o","皮球":"pí qiú;o",
+"氣球":"qì qiú;o","風箏":"fēng zheng;o","禮物":"lǐ wù;o","拼圖":"pīn tú;o","積木":"jī mù;o","玩偶":"wán ǒu;o",
+"音樂":"yīn yuè;o","鋼琴":"gāng qín;o","吉他":"jí tā;o","鼓":"gǔ;o","足球":"zú qiú;o","籃球":"lán qiú;o",
+"棒球":"bàng qiú;o","羽球":"yǔ qiú;o","跳繩":"tiào shéng;o","溜冰鞋":"liū bīng xié;o","自行車":"zì xíng chē;o",
+"汽車":"qì chē;o","火車":"huǒ chē;o","飛機":"fēi jī;o","船":"chuán;o","公車":"gōng chē;o","藥":"yào;o",
+"衣服":"yī fu;o","鞋子":"xié zi;o","帽子":"mào zi;o","毛衣":"máo yī;o","外套":"wài tào;o","雨傘":"yǔ sǎn;o",
+"水壺":"shuǐ hú;o","牙刷":"yá shuā;o","毛巾":"máo jīn;o","肥皂":"féi zào;o","枕頭":"zhěn tóu;o","被子":"bèi zi;o",
+"鬧鐘":"nào zhōng;o","時鐘":"shí zhōng;o","春聯":"chūn lián;o","煙火":"yān huǒ;o","燈籠":"dēng long;o",
+"紅包":"hóng bāo;o","卡片":"kǎ piàn;o","電影":"diàn yǐng;o","電視":"diàn shì;o","錢":"qián;o","東西":"dōng xi;o",
+"照片":"zhào piàn;o","世界":"shì jiè;o","汗":"hàn;o","身體":"shēn tǐ;o",
+/* 自然與動物 */
+"小貓":"xiǎo māo;n","小狗":"xiǎo gǒu;n","兔子":"tù zi;n","小鳥":"xiǎo niǎo;n","小魚":"xiǎo yú;n",
+"蝴蝶":"hú dié;n","螞蟻":"mǎ yǐ;n","松鼠":"sōng shǔ;n","青蛙":"qīng wā;n","小雞":"xiǎo jī;n",
+"鴨子":"yā zi;n","大象":"dà xiàng;n","猴子":"hóu zi;n","熊貓":"xióng māo;n","長頸鹿":"cháng jǐng lù;n",
+"老虎":"lǎo hǔ;n","獅子":"shī zi;n","金魚":"jīn yú;n",
+"太陽":"tài yáng;n","月亮":"yuè liang;n","星星":"xīng xing;n","白雲":"bái yún;n","彩虹":"cǎi hóng;n",
+"天空":"tiān kōng;n","大樹":"dà shù;n","小花":"xiǎo huā;n","小草":"xiǎo cǎo;n","花":"huā;n","樹":"shù;n",
+"葉子":"yè zi;n","落葉":"luò yè;n","石頭":"shí tou;n","沙子":"shā zi;n","海浪":"hǎi làng;n","山":"shān;n",
+"小河":"xiǎo hé;n","湖":"hú;n","森林":"sén lín;n","雨":"yǔ;n","雪":"xuě;n","風":"fēng;n","雲":"yún;n",
+"種子":"zhǒng zi;n","草":"cǎo;n","天氣":"tiān qì;n",
+/* 動作 */
+"去":"qù;a","來":"lái;a","回":"huí;a","看":"kàn;a","讀":"dú;a","寫":"xiě;a","吃":"chī;a","喝":"hē;a",
+"買":"mǎi;a","玩":"wán;a","學":"xué;a","唱":"chàng;a","跳":"tiào;a","跑":"pǎo;a","走":"zǒu;a","睡":"shuì;a",
+"說":"shuō;a","聽":"tīng;a","找":"zhǎo;a","送":"sòng;a","種":"zhòng;a","變":"biàn;a","存":"cún;a",
+"照顧":"zhào gù;a","幫":"bāng;a","做":"zuò;a","帶":"dài;a","用":"yòng;a","放":"fàng;a","穿":"chuān;a",
+"過":"guò;a","畫畫":"huà huà;a","寫字":"xiě zì;a","看書":"kàn shū;a","看電視":"kàn diàn shì;a",
+"看電影":"kàn diàn yǐng;a","看星星":"kàn xīng xing;a","看月亮":"kàn yuè liang;a","看海":"kàn hǎi;a",
+"看花":"kàn huā;a","看動物":"kàn dòng wù;a","看山":"kàn shān;a","看龍舟":"kàn lóng zhōu;a",
+"看煙火":"kàn yān huǒ;a","吃飯":"chī fàn;a","吃早餐":"chī zǎo cān;a","吃點心":"chī diǎn xin;a",
+"吃東西":"chī dōng xi;a","吃藥":"chī yào;a","吃蛋糕":"chī dàn gāo;a","吃月餅":"chī yuè bǐng;a",
+"吃粽子":"chī zòng zi;a","吃年糕":"chī nián gāo;a","吃湯圓":"chī tāng yuán;a","喝水":"hē shuǐ;a",
+"喝牛奶":"hē niú nǎi;a","上學":"shàng xué;a","上課":"shàng kè;a","做功課":"zuò gōng kè;a",
+"寫功課":"xiě gōng kè;a","寫日記":"xiě rì jì;a","整理書包":"zhěng lǐ shū bāo;a","刷牙":"shuā yá;a",
+"洗臉":"xǐ liǎn;a","洗手":"xǐ shǒu;a","洗澡":"xǐ zǎo;a","起床":"qǐ chuáng;a","睡覺":"shuì jiào;a",
+"穿衣服":"chuān yī fu;a","穿上":"chuān shang;a","換上":"huàn shang;a","散步":"sàn bù;a","旅行":"lǚ xíng;a",
+"游泳":"yóu yǒng;a","玩耍":"wán shuǎ;a","放風箏":"fàng fēng zheng;a","騎自行車":"qí zì xíng chē;a",
+"踢足球":"tī zú qiú;a","打籃球":"dǎ lán qiú;a","打羽毛球":"dǎ yǔ máo qiú;a","跑步":"pǎo bù;a",
+"唱歌":"chàng gē;a","跳舞":"tiào wǔ;a","聽音樂":"tīng yīn yuè;a","聽故事":"tīng gù shi;a",
+"學中文":"xué zhōng wén;a","說中文":"shuō zhōng wén;a","說故事":"shuō gù shi;a","貼春聯":"tiē chūn lián;a",
+"提燈籠":"tí dēng long;a","玩燈籠":"wán dēng long;a","包粽子":"bāo zòng zi;a","賞月":"shǎng yuè;a",
+"拜年":"bài nián;a","許願":"xǔ yuàn;a","送禮物":"sòng lǐ wù;a","收紅包":"shōu hóng bāo;a",
+"買東西":"mǎi dōng xi;a","做家事":"zuò jiā shì;a","打掃":"dǎ sǎo;a","幫忙":"bāng máng;a","休息":"xiū xi;a",
+"練習":"liàn xí;a","練琴":"liàn qín;a","玩遊戲":"wán yóu xì;a","玩拼圖":"wán pīn tú;a","堆積木":"duī jī mù;a",
+"生病":"shēng bìng;a","看病":"kàn bìng;a","看醫生":"kàn yī shēng;a","打招呼":"dǎ zhāo hu;a",
+"拍照":"pāi zhào;a","留下":"liú xià;a","記下":"jì xià;a","彈鋼琴":"tán gāng qín;a","打鼓":"dǎ gǔ;a",
+"唱生日歌":"chàng shēng rì gē;a","畫卡片":"huà kǎ piàn;a","澆水":"jiāo shuǐ;a","跑來跑去":"pǎo lái pǎo qù;a",
+"野餐":"yě cān;a","借書":"jiè shū;a","找同學":"zhǎo tóng xué;a","下雨":"xià yǔ;a","下雪":"xià xuě;a",
+"颳風":"guā fēng;a","出太陽":"chū tài yáng;a",
+/* 感受與形容 */
+"開心":"kāi xīn;f","高興":"gāo xìng;f","快樂":"kuài lè;f","興奮":"xīng fèn;f","幸福":"xìng fú;f",
+"溫暖":"wēn nuǎn;f","有趣":"yǒu qù;f","好玩":"hǎo wán;f","精彩":"jīng cǎi;f","美麗":"měi lì;f",
+"漂亮":"piào liang;f","可愛":"kě ài;f","乾淨":"gān jìng;f","整齊":"zhěng qí;f","聰明":"cōng míng;f",
+"勇敢":"yǒng gǎn;f","乖":"guāi;f","甜":"tián;f","香":"xiāng;f","好吃":"hǎo chī;f","好喝":"hǎo hē;f",
+"美味":"měi wèi;f","涼快":"liáng kuai;f","熱":"rè;f","冷":"lěng;f","晴朗":"qíng lǎng;f","舒服":"shū fu;f",
+"愉快":"yú kuài;f","放鬆":"fàng sōng;f","充實":"chōng shí;f","安靜":"ān jìng;f","熱鬧":"rè nào;f",
+"健康":"jiàn kāng;f","累":"lèi;f","餓":"è;f","渴":"kě;f","難過":"nán guò;f","害怕":"hài pà;f",
+"生氣":"shēng qì;f","擔心":"dān xīn;f","緊張":"jǐn zhāng;f","無聊":"wú liáo;f","痛":"tòng;f",
+"好":"hǎo;f","棒":"bàng;f","滿意":"mǎn yì;f","自豪":"zì háo;f","感動":"gǎn dòng;f","感謝":"gǎn xiè;f",
+"努力":"nǔ lì;f","難忘":"nán wàng;f","喜歡":"xǐ huan;f","愛":"ài;f",
+/* 功能詞 */
+"跟":"gēn;g","和":"hé;g","的":"de;g","了":"le;g","在":"zài;g","也":"yě;g","都":"dōu;g","就":"jiù;g",
+"會":"huì;g","要":"yào;g","想":"xiǎng;g","有":"yǒu;g","是":"shì;g","不":"bù;g","沒":"méi;g","還":"hái;g",
+"又":"yòu;g","先":"xiān;g","再":"zài;g","然後":"rán hòu;g","一起":"yī qǐ;g","常常":"cháng cháng;g",
+"非常":"fēi cháng;g","很":"hěn;g","真的":"zhēn de;g","最":"zuì;g","太":"tài;g","有點":"yǒu diǎn;g",
+"因為":"yīn wèi;g","所以":"suǒ yǐ;g","可是":"kě shì;g","讓":"ràng;g","從":"cóng;g","到":"dào;g",
+"把":"bǎ;g","給":"gěi;g","後":"hòu;g","裡":"lǐ;g","上":"shang;g","下":"xià;g","著":"zhe;g","地":"de;g",
+"得":"de;g","多":"duō;g","更":"gèng;g","越":"yuè;g","一些":"yī xiē;g","可以":"kě yǐ;g","嗎":"ma;g",
+"好好":"hǎo hǎo;g","互相":"hù xiāng;g","心裡":"xīn lǐ;g","覺得":"jué de;g","看起來":"kàn qǐ lai;g",
+"按時":"àn shí;g","早點":"zǎo diǎn;g","認真":"rèn zhēn;g","意思":"yì si;g","謝謝":"xiè xie;g",
+/* 標點 */
+"，":";q","。":";q","！":";q","？":";q"
+};
+
+/* =====================================================================
+   2. 句型固定詞庫（每一句都由固定句型搭配固定詞彙組成，語法自然通順）
+   ===================================================================== */
+var P = {
+T_M:["早上","中午","下午","晚上","今天","明天","昨天","每天","週末","星期六","放假"],
+T_S:["春天","夏天","秋天","冬天"],
+PPL:["爸爸","媽媽","哥哥","姐姐","弟弟","妹妹","爺爺","奶奶","外公","外婆","朋友","同學","老師","小朋友","鄰居"],
+PPL2:["爸爸","媽媽","哥哥","姐姐","弟弟","妹妹","爺爺","奶奶","朋友","老師","同學"],
+PERSON:["我","我們","爸爸","媽媽","哥哥","姐姐","弟弟","妹妹","爺爺","奶奶","朋友","老師","小朋友"],
+DEST:["旅行","公園","學校","市場","圖書館","海邊","動物園","山上","商店","散步","上課","看書","買東西","看動物","放風箏","游泳","玩耍"],
+STUDY:["看書","上課","寫功課","找同學","做功課","寫日記","學中文","借書"],
+MEALS:["早餐","午餐","晚餐","點心"],
+FOOD:["麵包","米飯","麵條","餃子","蛋糕","三明治","餅乾","粽子","月餅","水果","蘋果","香蕉","青菜","湯圓","年糕"],
+DRINK:["牛奶","果汁","水","豆漿","湯"],
+FOODADJ:["好吃","香","甜","美味"],
+ANIMAL:["小貓","小狗","兔子","小鳥","小魚","蝴蝶","螞蟻","松鼠","青蛙","小雞","鴨子","大象","猴子","熊貓","長頸鹿","老虎","獅子"],
+ANADJ:["可愛","乖","聰明","有趣","漂亮","勇敢"],
+APLACE:["家裡","樹上","草地上","水裡","山上","河邊","花園"],
+ADO:["玩耍","睡覺","吃東西","跳舞","散步","跑來跑去"],
+ADO2:["做功課","看書","整理書包","吃點心","看電視","練琴","寫日記","聽音樂","做家事","洗澡"],
+MDO1:["刷牙","洗臉","吃早餐","穿衣服","整理書包","喝水"],
+MDO2:["吃早餐","穿衣服","整理書包","喝水","刷牙"],
+NDO:["刷牙","洗臉","聽故事","看書","喝牛奶"],
+WADJ:["晴朗","涼快","溫暖","舒服","好"],
+CLOTH:["毛衣","外套","鞋子","帽子","衣服"],
+HOBBY:["畫畫","唱歌","跳舞","看書","聽音樂","踢足球","打籃球","打羽毛球","騎自行車","游泳","放風箏","堆積木","玩拼圖","寫日記"],
+SPORT:["踢足球","打籃球","打羽毛球","跑步","跳繩","游泳","騎自行車"],
+MUSIC:["鋼琴","吉他","唱歌","音樂","鼓"],
+MDO:["唱歌","聽音樂","打鼓","彈鋼琴","聽故事"],
+SHOP:["市場","商店","超市"],
+ITEM:["蘋果","麵包","牛奶","糖果","餅乾","玩具","書","鉛筆","氣球","水果","衣服","鞋子","拼圖"],
+HFOOD:["蔬菜","水果","青菜","雞蛋","米飯","魚"],
+NATURE:["山上","河邊","海邊","森林","公園","花園"],
+NTHING:["小花","大樹","石頭","蝴蝶","小鳥","小魚","葉子","落葉"],
+NPLAY:["看書","散步","玩耍","看星星","看月亮","畫畫","休息","看花"],
+CARE:["幫忙","送禮物","打招呼","說故事","做家事"],
+NYDO:["貼春聯","收紅包","看煙火","拜年","吃年糕"],
+MDDO:["吃月餅","賞月","看月亮","玩燈籠"],
+DWDO:["包粽子","吃粽子","看龍舟"],
+YXDO:["提燈籠","吃湯圓","看煙火","玩燈籠"],
+BDDO:["吃蛋糕","送禮物","唱生日歌","許願"],
+CDDO:["玩耍","放風箏","堆積木","玩拼圖","唱歌","跳舞"],
+FDAY:["母親節","父親節","新年","春節"],
+FDDO:["送禮物","畫卡片","做家事","唱歌"],
+VEHL:["火車","公車","汽車"],
+VEHF:["飛機","船","火車"],
+FAR:["旅行","看海","看山","看動物"],
+WX:["下雨","颳風","下雪","出太陽"],
+WHOME:["看書","看電視","聽音樂","睡覺","畫畫","玩拼圖","做功課"],
+WFEEL:["舒服","溫暖","安靜","開心","放鬆"],
+SKY:["星星","月亮","白雲","彩虹","太陽","天空"],
+PET:["小貓","小狗","兔子","小雞","鴨子","金魚"],
+TOY:["積木","拼圖","皮球","風箏","氣球","玩偶"],
+SDO:["看電影","看電視","聽故事","看書"],
+SKILL:["寫字","畫畫","游泳","騎自行車","唱歌","跳繩","說中文"],
+PICNIC:["公園","草地上","河邊","山上","海邊","花園"],
+WANT:["吃蛋糕","買東西","去旅行","看電影","去公園"],
+FEEL:["開心","高興","快樂","好玩","有趣","興奮","幸福","溫暖","舒服","愉快"],
+ADVS:["非常","很","真的","最","太"]
+};
+
+/* 固定句型（$名稱 = 由上方詞庫取一個詞；$名稱.a/.b = 同一詞庫取兩個不同的詞） */
+var FRAMES = [
+["我","想","要","$WANT","，","$PPL","說","可以","，","我","很","開心","。"],
+["$T_M","我","跟","$PPL","一起","去","$DEST","，","$ADVS","$FEEL","。"],
+["$T_M","我","去","$DEST","，","$PPL","也","跟","我","一起","，","$ADVS","$FEEL","。"],
+["$T_M","我","在","教室","裡","$STUDY","，","$ADVS","$FEEL","。"],
+["$MEALS","我","吃","$FOOD","，","還","喝","$DRINK","，","真的","很","$FOODADJ","。"],
+["我","最","喜歡","吃","$FOOD","，","因為","它","很","$FOODADJ","。"],
+["$T_M","我","跟","$PPL","一起","吃","$FOOD","，","非常","$FOODADJ","。"],
+["我","最","喜歡","$ANIMAL","，","因為","牠","很","$ANADJ","。"],
+["$ANIMAL","在","$APLACE","$ADO","，","看起來","很","$ANADJ","。"],
+["$T_M","我","看到","$ANIMAL","在","$ADO","，","$ADVS","$ANADJ","。"],
+["今天","天氣","很","$WADJ","，","我們","去","$DEST","，","非常","$FEEL","。"],
+["$T_S","來","了","，","我","換上","$CLOTH","，","覺得","很","$FEEL","。"],
+["$T_M","我","跟","$PPL","一起","$HOBBY","，","$ADVS","$FEEL","。"],
+["我","很","喜歡","$HOBBY","，","每天","都","練習","，","越","來","越","好","。"],
+["早上","我","先","$MDO1","，","再","$MDO2","，","然後","去","上學","。"],
+["放學","後","我","$ADO2.a","，","再","$ADO2.b","，","很","充實","。"],
+["晚上","我","$ADO2","，","然後","$NDO","，","早點","睡覺","。"],
+["我","跟","$PPL","去","$SHOP","買","$ITEM","，","非常","滿意","。"],
+["$T_M","我們","去","$SHOP","買","$ITEM.a","，","還","買","了","$ITEM.b","。"],
+["我","每天","吃","$HFOOD.a","和","$HFOOD.b","，","身體","很","健康","。"],
+["$PPL","生病","了","，","要","吃","藥","，","好好","休息","。"],
+["我","去","看","醫生","，","按時","吃","藥","，","身體","很","健康","。"],
+["$T_M","我們","一起","$SPORT","，","大家","都","玩","得","很","開心","。"],
+["我","喜歡","$SPORT","，","流","了","很","多","汗","，","可是","很","快樂","。"],
+["我","很","喜歡","$MUSIC","，","每天","都","練習","，","越","來","越","好","。"],
+["$T_M","我","$MDO","，","$PPL","也","一起","唱","，","非常","快樂","。"],
+["$T_M","我們","去","$NATURE","，","看到","很","多","$NTHING","，","非常","$FEEL","。"],
+["$T_S","來","了","，","$NTHING","很","漂亮","，","我","很","喜歡","。"],
+["$T_M","我","在","$NATURE","$NPLAY","，","真的","很","$FEEL","。"],
+["$PPL","常常","幫","我","，","我","心裡","覺得","很","$FEEL","。"],
+["我","愛","$PPL","，","也","常常","$CARE","，","非常","$FEEL","。"],
+["過年","的","時候","，","我","跟","$PPL","一起","$NYDO","，","$ADVS","開心","。"],
+["中秋節","的","時候","，","我","跟","$PPL","一起","$MDDO","，","$ADVS","$FEEL","。"],
+["端午節","的","時候","，","我","跟","$PPL","一起","$DWDO","，","$ADVS","$FEEL","。"],
+["元宵節","的","時候","，","我","跟","$PPL","一起","$YXDO","，","$ADVS","$FEEL","。"],
+["$PERSON","過","生日","，","我們","$BDDO","，","$ADVS","開心","。"],
+["兒童節","的","時候","，","我","跟","$PPL","一起","$CDDO","，","$ADVS","$FEEL","。"],
+["$FDAY","的","時候","，","我","$FDDO","給","$PPL2","，","非常","溫暖","。"],
+["$T_M","我們","搭","$VEHL","去","$DEST","，","$ADVS","$FEEL","。"],
+["放假","的","時候","，","我們","搭","$VEHF","去","$FAR","，","非常","興奮","。"],
+["$T_M","我","跟","$PPL","騎","自行車","去","$DEST","，","$ADVS","$FEEL","。"],
+["外面","$WX","了","，","我","在","家","$WHOME","，","很","$WFEEL","。"],
+["天氣","變","冷","了","，","我","穿上","$CLOTH","，","覺得","很","溫暖","。"],
+["天氣","變","熱","了","，","我","喝","$DRINK","，","很","涼快","。"],
+["我","存","了","一些","錢","，","買","了","$ITEM","，","很","開心","。"],
+["$PPL","送","我","$ITEM","，","我","說","謝謝","，","非常","$FEEL","。"],
+["在","圖書館","裡","，","我","安靜","地","看書","，","覺得","很","有","意思","。"],
+["上課","的","時候","，","我","認真","聽","老師","說","，","覺得","很","有","意思","。"],
+["我","每天","寫","日記","，","記下","開心","的","事","，","很","難忘","。"],
+["$PPL","做","好吃","的","菜","給","我","吃","，","我","很","感謝","。"],
+["$T_S","的","時候","，","我","種","下","種子","，","每天","澆水","，","很","開心","。"],
+["$T_M","我","看","著","$SKY","，","覺得","世界","很","美麗","。"],
+["我","在","海邊","玩","沙子","，","看","到","海浪","，","非常","好玩","。"],
+["我","每天","照顧","$PET","，","幫","牠","吃飯","，","牠","很","乖","。"],
+["我","最","喜歡","的","玩具","是","$TOY","，","真的","很","好玩","。"],
+["$T_M","我","跟","$PPL","一起","$SDO","，","故事","很","精彩","。"],
+["我","跟","$PPL","一起","做家事","，","把","房間","整理","好","，","很","乾淨","。"],
+["我","學","會","了","$SKILL","，","非常","自豪","，","要","更","努力","。"],
+["$T_M","我","練習","$HOBBY","，","$PPL","說","我","很","棒","，","我","很","開心","。"],
+["放假","的","時候","，","我","跟","$PPL","去","$DEST","，","玩","得","很","開心","。"],
+["$T_M","我們","在","$PICNIC","野餐","，","吃","$FOOD","，","非常","快樂","。"],
+["$T_M","我","跟","$PPL","一起","拍照","，","留下","美好","的","回憶","。"],
+["$T_M","跟","$PPL","一起","$HOBBY","，","真的","很","好玩","！"],
+["你","最","喜歡","$HOBBY","嗎","？","我","也","很","$FEEL","。"]
+];
+
+/* 補上句型中的固定複合詞 */
+WORDS["美好"] = "měi hǎo;f";
+WORDS["回憶"] = "huí yì;o";
+
+/* =====================================================================
+   3. 句庫產生（固定句型 × 固定詞彙 → 預設自然句）
+   ===================================================================== */
+function rnd(n){ return Math.floor(Math.random()*n); }
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=rnd(i+1),t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+
+function buildSentence(frame){
+  var chosen={}, used={}, out=[];
+  for(var i=0;i<frame.length;i++){
+    var raw=frame[i];
+    if(raw.charAt(0)!=='$'){ out.push(raw); continue; }
+    var name=raw.slice(1), base=name.split('.')[0], pool=P[base];
+    if(chosen[name]===undefined){
+      var avail=[], u=used[base]||(used[base]=[]);
+      for(var k=0;k<pool.length;k++){ if(u.indexOf(pool[k])<0) avail.push(pool[k]); }
+      if(!avail.length) avail=pool;
+      var v=avail[rnd(avail.length)];
+      chosen[name]=v; u.push(v);
+    }
+    out.push(chosen[name]);
+  }
+  return out;
+}
+
+function buildDatabase(target){
+  var seen={}, db=[], progress=true;
+  while(db.length<target && progress){
+    progress=false;
+    for(var f=0; f<FRAMES.length && db.length<target; f++){
+      for(var tries=0; tries<14 && db.length<target; tries++){
+        var s=buildSentence(FRAMES[f]), key=s.join('');
+        if(!seen[key]){ seen[key]=1; db.push(s); progress=true; break; }
+      }
+    }
+  }
+  return db;
+}
+var DB = buildDatabase(1200);
+
+/* =====================================================================
+   4. 拼音：聲母／韻母拆解
+   ===================================================================== */
+var INITIALS=["zh","ch","sh","b","p","m","f","d","t","n","l","g","k","h","j","q","x","r","z","c","s","y","w"];
+function splitSyl(s){
+  if(!s) return ["",""];
+  var low=s.toLowerCase();
+  for(var i=0;i<INITIALS.length;i++){
+    var ini=INITIALS[i];
+    if(low.indexOf(ini)===0 && s.length>ini.length) return [s.slice(0,ini.length), s.slice(ini.length)];
+  }
+  return ["零聲母", s];
+}
+function metaFor(p){
+  if(!p) return "";
+  var syl=p.split(" ");
+  if(syl.length>2) return "";
+  return syl.map(function(s){ var a=splitSyl(s); return a[0]+" + "+a[1]; }).join("   ·   ");
+}
+function tokenInfo(text){
+  var raw=WORDS[text];
+  if(!raw){ console.warn("缺少詞彙：", text); return {t:text,p:"",cat:"g"}; }
+  var i=raw.lastIndexOf(";");
+  return { t:text, p:raw.slice(0,i), cat:raw.slice(i+1) };
+}
+
+/* =====================================================================
+   5. 語音（Web Speech API）
+   ===================================================================== */
+var speechOK = !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
+var voice=null, lastSpoken=null;
+function pickVoice(){
+  if(!speechOK) return;
+  var all=window.speechSynthesis.getVoices()||[], zh=[];
+  for(var i=0;i<all.length;i++){ if(/^zh/i.test(all[i].lang||"")) zh.push(all[i]); }
+  function find(re){ for(var i=0;i<zh.length;i++){ if(re.test(zh[i].lang)) return zh[i]; } return null; }
+  voice = find(/zh[-_]TW/i) || find(/zh[-_]CN/i) || find(/^zh(?![-_]HK)/i) || zh[0] || null;
+  updateVoiceInfo();
+}
+if(speechOK){
+  pickVoice();
+  window.speechSynthesis.onvoiceschanged = pickVoice;
+  setTimeout(pickVoice, 400); setTimeout(pickVoice, 1200);
+}
+function setupUtter(u){
+  if(voice){ u.voice=voice; u.lang=voice.lang; } else { u.lang="zh-TW"; }
+  u.rate=0.82; u.pitch=1.05; u.volume=1;
+}
+function speak(text){
+  if(!speechOK){ feedback("這台裝置目前不支援朗讀，可以看著拼音練習。"); return; }
+  lastSpoken={type:"token", text:text};
+  window.speechSynthesis.cancel();
+  setTimeout(function(){
+    var u=new SpeechSynthesisUtterance(text); setupUtter(u); window.speechSynthesis.speak(u);
+  },60);
+}
+function speakSentence(){
+  if(!speechOK){ feedback("這台裝置目前不支援朗讀，可以看著拼音練習。"); return; }
+  var text=STATE.text;
+  lastSpoken={type:"sentence", text:text};
+  var parts=text.match(/[^，。！？]+[，。！？]?/g)||[text];
+  window.speechSynthesis.cancel();
+  var i=0;
+  function next(){
+    if(i>=parts.length) return;
+    var s=parts[i++];
+    var u=new SpeechSynthesisUtterance(s); setupUtter(u);
+    var gap=/[。！？]$/.test(s)?420:260;
+    u.onend=function(){ if(i<parts.length) setTimeout(next, gap); };
+    u.onerror=u.onend;
+    window.speechSynthesis.speak(u);
+  }
+  setTimeout(next, 90);
+}
+function noSpeech(){ feedback("這台裝置目前不支援朗讀，可以看著拼音練習。"); }
+
+/* =====================================================================
+   6. 狀態與畫面
+   ===================================================================== */
+var trayEl=$("#tray"), bankEl=$("#bank"), fbEl=$("#feedback"), fxEl=$("#fx"), cheerEl=$("#cheer");
+var STATE={ tokens:[], text:"", solved:false, n:1, order:[] };
+var dbShuffle = shuffle(DB.slice());
+
+function pickPuzzle(){
+  if(!dbShuffle.length) dbShuffle = shuffle(DB.slice());
+  return dbShuffle.pop();
+}
+
+function makeTile(uid){
+  var tk=STATE.tokens[uid];
+  var el=document.createElement("button");
+  el.type="button";
+  el.className="tile cat-"+tk.cat;
+  el.dataset.uid=uid;
+  el.setAttribute("aria-label", tk.t + "，拼音 " + (tk.p || "標點符號"));
+  el.style.setProperty("--fill", fillOf(tk.cat));
+  el.innerHTML='<span class="meta">'+metaFor(tk.p)+'</span><span class="py">'+tk.p+'</span><span class="hz">'+tk.t+'</span>';
+  return el;
+}
+function fillOf(c){
+  if(c==="t") return "#FFD166";
+  if(c==="p"||c==="f") return "#A78BFA";
+  if(c==="o"||c==="n") return "#4ECDC4";
+  if(c==="a") return "#FFB3A7";
+  if(c==="q") return "#EFEBE0";
+  return "#FFFDF5";
+}
+
+function newPuzzle(){
+  var sent=pickPuzzle();
+  STATE.tokens=sent.map(tokenInfo);
+  STATE.text=sent.join('');
+  STATE.solved=false;
+  trayEl.innerHTML=""; bankEl.innerHTML="";
+  trayEl.className="tray";
+  var idxs=shuffle(STATE.tokens.map(function(_,i){ return i; }));
+  idxs.forEach(function(i){ bankEl.appendChild(makeTile(i)); });
+  $("#progress").textContent="第 "+STATE.n+" 題";
+  $("#btnCheck").disabled=false; $("#btnReset").disabled=false; $("#btnNext").hidden=true;
+  feedback("",false);
+  syncHas();
+}
+function syncHas(){ trayEl.classList.toggle("has", trayEl.children.length>0); }
+
+function feedback(txt, good){
+  if(!txt){ fbEl.innerHTML=""; fbEl.classList.remove("good"); return; }
+  fbEl.innerHTML='<span class="pill">'+txt+'</span>';
+  fbEl.classList.toggle("good", !!good);
+}
+
+/* ---------- 拖曳 ---------- */
+var drag=null;
+function containerAt(x,y){
+  var list=[trayEl, bankEl];
+  for(var i=0;i<list.length;i++){
+    var r=list[i].getBoundingClientRect();
+    if(x>=r.left && x<=r.right && y>=r.top-4 && y<=r.bottom+4) return list[i];
+  }
+  return null;
+}
+function indexAt(c,x,y){
+  var kids=c.children, before=0;
+  for(var i=0;i<kids.length;i++){
+    var el=kids[i];
+    if(!el.classList.contains("tile")) continue;
+    if(drag && el===drag.tile) continue;
+    var r=el.getBoundingClientRect();
+    var cx=r.left+r.width/2, cy=r.top+r.height/2;
+    var isBefore = (cy < y-6) || (Math.abs(y-cy) < r.height/2 && cx < x);
+    if(isBefore) before++;
+  }
+  return before;
+}
+function flip(mutate){
+  if(RM || !document.body.animate){ mutate(); return; }
+  var els=[].slice.call(document.querySelectorAll("#tray > .tile, #bank > .tile"));
+  var first=els.map(function(e){ return e.getBoundingClientRect(); });
+  mutate();
+  els.forEach(function(e,i){
+    var r=e.getBoundingClientRect(), f=first[i];
+    var dx=f.left-r.left, dy=f.top-r.top;
+    if(!dx && !dy) return;
+    if(!e.animate) return;
+    e.animate([{transform:"translate("+dx+"px,"+dy+"px)"},{transform:"none"}],
+              {duration:220, easing:"cubic-bezier(.22,1,.36,1)"});
+  });
+}
+function placePlaceholder(c, index){
+  flip(function(){
+    var ph=drag.ph, tiles=[];
+    for(var i=0;i<c.children.length;i++){ if(c.children[i].classList.contains("tile") && c.children[i]!==drag.tile) tiles.push(c.children[i]); }
+    c.insertBefore(ph, tiles[index] || null);
+    drag.target=c;
+  });
+}
+function autoScroll(c, y){
+  var r=c.getBoundingClientRect();
+  if(y < r.top+44) c.scrollTop -= 12;
+  else if(y > r.bottom-44) c.scrollTop += 12;
+}
+function onDown(e){
+  if(STATE.solved) return;
+  var tile=e.target.closest ? e.target.closest(".tile") : null;
+  if(!tile) return;
+  if(e.pointerType==="mouse" && e.button!==0) return;
+  drag={ tile:tile, id:e.pointerId, x0:e.clientX, y0:e.clientY, active:false,
+         ph:null, ghost:null, target:tile.parentElement, moved:false };
+  try{ tile.setPointerCapture(e.pointerId); }catch(err){}
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onCancel);
+  e.preventDefault();
+}
+function onMove(e){
+  if(!drag || e.pointerId!==drag.id) return;
+  var dx=e.clientX-drag.x0, dy=e.clientY-drag.y0;
+  if(!drag.active){
+    if(Math.abs(dx)<7 && Math.abs(dy)<7) return;
+    drag.active=true;
+    var r=drag.tile.getBoundingClientRect();
+    var g=drag.tile.cloneNode(true);
+    g.className=drag.tile.className+" ghost";
+    g.style.width=r.width+"px"; g.style.height=r.height+"px";
+    document.body.appendChild(g);
+    drag.ghost=g;
+    drag.ph=document.createElement("div");
+    drag.ph.className="ph";
+    drag.ph.style.width=r.width+"px"; drag.ph.style.height=r.height+"px";
+    drag.tile.classList.add("dragging");
+  }
+  drag.moved=true;
+  drag.ghost.style.left=e.clientX+"px";
+  drag.ghost.style.top=e.clientY+"px";
+  var c=containerAt(e.clientX,e.clientY);
+  if(c){
+    autoScroll(c, e.clientY);
+    placePlaceholder(c, indexAt(c, e.clientX, e.clientY));
+  }
+  e.preventDefault();
+}
+function finishDrag(commit){
+  window.removeEventListener("pointermove", onMove);
+  window.removeEventListener("pointerup", onUp);
+  window.removeEventListener("pointercancel", onCancel);
+  if(!drag) return;
+  var d=drag; drag=null;
+  if(!d.active) return false;
+  if(d.ghost) d.ghost.remove();
+  d.tile.classList.remove("dragging");
+  if(commit && d.ph && d.ph.parentElement){
+    flip(function(){
+      d.ph.parentElement.insertBefore(d.tile, d.ph);
+      d.ph.remove();
+    });
+    d.tile.classList.remove("anim-drop"); void d.tile.offsetWidth; d.tile.classList.add("anim-drop");
+  } else if(d.ph){ d.ph.remove(); }
+  syncHas();
+  if(commit) afterChange();
+  return true;
+}
+function onUp(e){
+  if(!drag || e.pointerId!==drag.id) return;
+  var wasDrag = drag.active, moved = drag.moved;
+  var tile = drag.tile;
+  var done = finishDrag(true);
+  if(!wasDrag && !moved){ speak(tile.querySelector(".hz").textContent); }
+}
+function onCancel(){ finishDrag(false); }
+
+function trayUids(){
+  var out=[];
+  for(var i=0;i<trayEl.children.length;i++){
+    var el=trayEl.children[i];
+    if(el.classList.contains("tile")) out.push(+el.dataset.uid);
+  }
+  return out;
+}
+var autoTimer=null;
+function afterChange(){
+  clearTimeout(autoTimer);
+  if(STATE.solved) return;
+  if(trayUids().length===STATE.tokens.length){
+    autoTimer=setTimeout(function(){ checkAnswer(true); }, 380);
+  }
+}
+
+/* ---------- 鍵盤操作 ---------- */
+function onKey(e){
+  var tile=e.target.closest ? e.target.closest(".tile") : null;
+  if(!tile) return;
+  var c=tile.parentElement;
+  if(e.key===" " || e.key==="Enter"){
+    e.preventDefault();
+    if(!STATE.solved) speak(tile.querySelector(".hz").textContent);
+  } else if(e.key==="ArrowLeft" || e.key==="ArrowRight"){
+    e.preventDefault();
+    var sibs=[], i;
+    for(i=0;i<c.children.length;i++){ if(c.children[i].classList.contains("tile")) sibs.push(c.children[i]); }
+    var at=sibs.indexOf(tile), to=at+(e.key==="ArrowRight"?1:-1);
+    if(to<0 || to>=sibs.length) return;
+    flip(function(){
+      if(to>at) c.insertBefore(tile, sibs[to].nextSibling);
+      else c.insertBefore(tile, sibs[to]);
+    });
+    tile.focus(); afterChange();
+  } else if(e.key==="ArrowUp" || e.key==="ArrowDown"){
+    e.preventDefault();
+    var dest = (e.key==="ArrowUp") ? trayEl : bankEl;
+    if(dest===c) return;
+    flip(function(){ dest.appendChild(tile); });
+    tile.focus(); syncHas(); afterChange();
+  }
+}
+
+/* =====================================================================
+   7. 檢查、慶祝
+   ===================================================================== */
+function checkAnswer(auto){
+  if(STATE.solved) return;
+  var u=trayUids();
+  if(u.length<STATE.tokens.length){
+    feedback("還沒有排好喔，再試試看。", false);
+    return;
+  }
+  var ok=true;
+  for(var i=0;i<u.length;i++){ if(u[i]!==i){ ok=false; break; } }
+  if(ok){ celebrate(); }
+  else{
+    feedback("再試試看，順序差一點點。", false);
+    if(!RM){ trayEl.classList.remove("anim-wobble"); void trayEl.offsetWidth; trayEl.classList.add("anim-wobble"); }
+  }
+}
+
+function celebrate(){
+  STATE.solved=true;
+  clearTimeout(autoTimer);
+  trayEl.classList.add("solved");
+  $("#btnCheck").disabled=true;
+  $("#btnReset").disabled=true;
+  $("#btnNext").hidden=false;
+  feedback("答對了！句子排好了。", true);
+
+  if(!RM){
+    var tiles=trayEl.querySelectorAll(".tile");
+    for(var i=0;i<tiles.length;i++){
+      tiles[i].classList.add("anim-pop", "locked");
+      tiles[i].style.animationDelay=(i*38)+"ms";
+    }
+  } else {
+    var ts=trayEl.querySelectorAll(".tile");
+    for(var j=0;j<ts.length;j++) ts[j].classList.add("locked");
+  }
+
+  cheerEl.classList.add("show");
+  setTimeout(function(){ cheerEl.classList.remove("show"); }, 2200);
+
+  if(!RM) confetti();
+  setTimeout(function(){ speakSentence(); }, RM?200:780);
+}
+
+function confetti(){
+  var colors=["#FF5C5C","#4ECDC4","#FFD166","#A78BFA","#FFFDF5"];
+  for(var i=0;i<44;i++){
+    var p=document.createElement("div");
+    p.className="conf";
+    var star=Math.random()<0.4;
+    var w=star?16:(8+Math.random()*8), h=star?16:(10+Math.random()*12);
+    p.style.width=w+"px"; p.style.height=h+"px";
+    p.style.left=(Math.random()*100)+"vw";
+    p.style.background=colors[(Math.random()*colors.length)|0];
+    if(star) p.style.clipPath="polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)";
+    p.style.animationDuration=(1.8+Math.random()*1.6)+"s";
+    p.style.animationDelay=(Math.random()*0.6)+"s";
+    fxEl.appendChild(p);
+    (function(el){ setTimeout(function(){ el.remove(); }, 4200); })(p);
+  }
+}
+
+/* =====================================================================
+   8. 按鈕
+   ===================================================================== */
+trayEl.addEventListener("pointerdown", onDown);
+bankEl.addEventListener("pointerdown", onDown);
+trayEl.addEventListener("keydown", onKey);
+bankEl.addEventListener("keydown", onKey);
+
+$("#btnCheck").addEventListener("click", function(){ checkAnswer(false); });
+$("#btnReset").addEventListener("click", function(){
+  if(STATE.solved) return;
+  flip(function(){
+    while(trayEl.children.length) bankEl.appendChild(trayEl.children[0]);
+  });
+  syncHas(); feedback("回到詞語庫，再排一次。", false);
+});
+$("#btnNext").addEventListener("click", function(){
+  STATE.n++; newPuzzle();
+});
+$("#btnAgain").addEventListener("click", function(){
+  if(!lastSpoken){ feedback("先點一個詞語，就能聽到聲音。", false); return; }
+  if(lastSpoken.type==="sentence") speakSentence();
+  else speak(lastSpoken.text);
+});
+[].slice.call(document.querySelectorAll(".scrollbtn")).forEach(function(b){
+  b.addEventListener("click", function(){
+    bankEl.scrollBy({top: 70*(+b.dataset.dir), behavior: RM?"auto":"smooth"});
+  });
+});
+
+/* 朗讀設定 */
+var sheet=$("#settings");
+function updateVoiceInfo(){
+  if(!speechOK){ $("#voiceInfo").textContent="目前聲音：不支援朗讀"; $("#speechNote").textContent="這台裝置目前不支援朗讀，可以看著拼音練習。"; return; }
+  $("#voiceInfo").textContent = "目前聲音：" + (voice ? (voice.name || "中文聲音") : "尋找中文聲音中…");
+  $("#speechNote").textContent = voice ? "會用普通話朗讀詞語和句子。" : "如果找不到中文聲音，可以看著拼音練習。";
+}
+$("#btnSettings").addEventListener("click", function(){ updateVoiceInfo(); sheet.hidden=false; });
+$("#btnClose").addEventListener("click", function(){ sheet.hidden=true; });
+sheet.addEventListener("click", function(e){ if(e.target===sheet) sheet.hidden=true; });
+$("#btnTest").addEventListener("click", function(){
+  if(!speechOK){ updateVoiceInfo(); return; }
+  lastSpoken={type:"token", text:"你好，我們一起來玩。"};
+  window.speechSynthesis.cancel();
+  setTimeout(function(){ var u=new SpeechSynthesisUtterance("你好，我們一起來玩。"); setupUtter(u); window.speechSynthesis.speak(u); },60);
+});
+
+window.addEventListener("pointermove", function(e){ if(drag) e.preventDefault(); }, {passive:false});
+
+/* 開始 */
+newPuzzle();
+})();
+</script>
+</body>
+</html>
